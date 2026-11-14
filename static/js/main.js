@@ -600,40 +600,6 @@
   seg($("#pc-bb"), (v) => { pc.bb = v; drawPerClass(); });
   drawPerClass();
 
-  /* ================= ablation ================= */
-  (function drawAblation() {
-    const A = D.ablation;
-    const rows = A.rows;
-    const n = rows[0].vals.length;
-    const stats = Array.from({ length: n }, (_, i) => {
-      const vs = rows.map((r) => r.vals[i]);
-      return { min: Math.min(...vs), max: Math.max(...vs), ...marks(vs, false) };
-    });
-    let h = '<div class="tbl-wrap"><table class="data"><thead>';
-    h += '<tr class="grp"><th></th><th colspan="3"></th><th colspan="3" class="sep">MitoEM R→H · F1</th><th colspan="3" class="sep">MM-WHS MR→CT · Dice</th></tr>';
-    h += '<tr><th>Variant</th><th style="text-align:center">L<sub>rc</sub></th><th style="text-align:center">L<sub>rs</sub></th><th style="text-align:center">L<sub>rm</sub></th>';
-    ["U-Net", "DINOv3", "MedSAM", "U-Net", "DINOv3", "MedSAM"].forEach((b, i) => (h += `<th class="${i % 3 === 0 ? "sep" : ""}">${b}</th>`));
-    h += "</tr></thead><tbody>";
-    rows.forEach((r) => {
-      const full = r.rc && r.rs && r.rm;
-      const nOn = [r.rc, r.rs, r.rm].filter(Boolean).length;
-      const name = r.pl ? "Confidence-threshold self-training" : nOn === 0 ? "Source-only" : full ? "RIDA (full)" : nOn === 1 ? "One loss" : "Two losses";
-      h += `<tr class="${full ? "ours" : ""}"><td>${name}</td>`;
-      if (r.pl) h += '<td colspan="3" style="text-align:center;color:var(--muted)">Eq. (2), η threshold</td>';
-      else [r.rc, r.rs, r.rm].forEach((f) => (h += `<td style="text-align:center">${f ? '<span class="chk">✓</span>' : '<span class="dash">·</span>'}</td>`));
-      r.vals.forEach((v, i) => {
-        const s = stats[i];
-        const t = s.max > s.min ? (v - s.min) / (s.max - s.min) : 0.5;
-        const cls = [i % 3 === 0 ? "sep" : ""];
-        if (v === s.b1) cls.push("b1"); else if (v === s.b2) cls.push("b2");
-        h += `<td class="${cls.join(" ")}" style="${full ? "" : heat(t)}">${fmt(v)}</td>`;
-      });
-      h += "</tr>";
-    });
-    h += "</tbody></table></div>";
-    $("#ablation").innerHTML = h;
-  })();
-
   /* ================= GTA5 -> Cityscapes ================= */
   (function drawGTA() {
     const G = D.gta;
@@ -695,61 +661,6 @@
   }
   seg($("#qual-tab"), drawQual);
   drawQual("med");
-
-  /* ================= sensitivity ================= */
-  (function drawSens() {
-    const host = $("#sens");
-    const panels = [];
-    const bbs = [["U-Net", "var(--bb-unet)"], ["DINOv3", "var(--bb-dino)"], ["MedSAM", "var(--bb-sam)"]];
-    D.sens_select.params.forEach(([name, values, main], pi) => {
-      const mainIdx = values.indexOf(main);
-      const lines = bbs.map(([b]) => {
-        const vs = D.sens_select.rows[b].slice(pi * 4, pi * 4 + 4);
-        return { vals: vs, mainIdx: [mainIdx] };
-      });
-      panels.push({ name, values, lines });
-    });
-    ["rc", "rm", "rs"].forEach((p) => {
-      const rows = D.sens_loss.filter((r) => r.param === p);
-      const lines = bbs.map((_, j) => ({ vals: rows.map((r) => r.vals[j]), mainIdx: rows.map((r, i) => (r.shaded[j] ? i : -1)).filter((i) => i >= 0) }));
-      panels.push({ name: "lambda_" + p, values: rows.map((r) => r.value), lines });
-    });
-    const label = {
-      K: "Anchors K", q: "Quantile q", s0: "Stability s₀", zeta: "Fraction ζ",
-      lambda_rc: "Weight λ_rc", lambda_rm: "Weight λ_rm", lambda_rs: "Weight λ_rs",
-    };
-    const grid = document.createElement("div");
-    grid.style.cssText = "display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px 18px";
-    const lo = -3.5, hi = 0.5;
-    panels.forEach((p) => {
-      const W = 240, Hh = 170, L = 34, R = 10, T = 26, B = 26;
-      const n = p.values.length;
-      const x = (i) => L + (n === 1 ? 0.5 : i / (n - 1)) * (W - L - R);
-      const y = (v) => T + (hi - v) / (hi - lo) * (Hh - T - B);
-      const svg = svgRoot(W, Hh, `Sensitivity to ${label[p.name]}`);
-      el("text", { x: 0, y: 14, style: "font-size:12.5px;font-weight:700;fill:var(--ink)", text: label[p.name] }, svg);
-      [0, -1, -2, -3].forEach((t) => {
-        el("line", { x1: L, x2: W - R, y1: y(t), y2: y(t), style: `stroke:${t === 0 ? "var(--line-2)" : "var(--line)"};stroke-width:1` }, svg);
-        el("text", { x: L - 6, y: y(t) + 4, "text-anchor": "end", style: "font-size:10px;fill:var(--muted)", text: t === 0 ? "0" : "−" + Math.abs(t) }, svg);
-      });
-      p.values.forEach((v, i) => el("text", { x: x(i), y: Hh - 8, "text-anchor": "middle", style: "font-size:10.5px;fill:var(--ink-2)", text: v }, svg));
-      p.lines.forEach((ln, j) => {
-        const base = ln.vals[ln.mainIdx[0]];
-        const d = ln.vals.map((v) => v - base);
-        const pts = d.map((v, i) => `${x(i)},${y(v)}`).join(" ");
-        el("polyline", { points: pts, style: `fill:none;stroke:${bbs[j][1]};stroke-width:2;stroke-linejoin:round;stroke-linecap:round` }, svg);
-        d.forEach((v, i) => {
-          const isMain = ln.mainIdx.includes(i);
-          const c = el("circle", { cx: x(i), cy: y(v), r: isMain ? 5 : 3.5, style: `fill:${isMain ? "var(--surface)" : bbs[j][1]};stroke:${isMain ? bbs[j][1] : "var(--surface)"};stroke-width:2` }, svg);
-          hover(c, `<b>${bbs[j][0]} · ${label[p.name]} = ${p.values[i]}</b><br>Dice <span class="tv">${fmt(ln.vals[i])}</span> (${sgn(v)} vs main)${isMain ? "<br>main setting" : ""}`);
-        });
-      });
-      const wrap = document.createElement("div");
-      wrap.appendChild(svg);
-      grid.appendChild(wrap);
-    });
-    host.appendChild(grid);
-  })();
 
   /* ================= cost ================= */
   (function drawCost() {

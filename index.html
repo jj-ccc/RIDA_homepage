@@ -447,20 +447,6 @@
     <div id="perclass"></div>
   </div>
 
-  <h3 class="sub">Ablation of the three components</h3>
-  <div id="ablation"></div>
-  <p class="tbl-foot">MitoEM R→H (F1, %) and MM-WHS MR→CT (Dice, %). Every row uses \(\mathcal{L}_{sup}\); the first row is self-training with the confidence threshold that the three components replace. Shading runs within each column.</p>
-  <div class="cols" style="margin-top:22px;font-size:.98rem">
-    <div class="stack read">
-      <p>Each loss alone improves every column over the source-only model, and rank-stable self-training gives the largest single gain in each. Replacing confidence-thresholded self-training by \(\mathcal{L}_{rs}\) alone raises every column, by 1.02 to 19.02 points.</p>
-      <p>The full model is the best in all six columns, and removing any one loss lowers every column, most for rank-stable self-training (1.93 to 8.11 points).</p>
-    </div>
-    <div class="stack read">
-      <p>The components complement each other. Rank consistency and rank-stable self-training together exceed either alone, since the invariance that the first learns is the one the second checks.</p>
-      <p>Rank matching and rank-stable self-training together exceed either alone, since rank matching gives little weight near class boundaries, where the teacher remains informative.</p>
-    </div>
-  </div>
-
   <h3 class="sub">A natural-image reference: GTA5 → Cityscapes</h3>
   <div class="chart-card">
     <div class="chart-top">
@@ -507,17 +493,6 @@
       <div class="plate"><img src="static/img/fig6.webp" width="1600" height="1307" alt="Similarity maps of three target anchors selected without labels in EM and MM-WHS images" loading="lazy"></div>
       <figcaption><b>Target anchors, selected without labels.</b> Similarity maps of three target anchors (stars) in EM (top two rows) and MM-WHS (bottom two rows), and their overlay. They separate the background from different structures of the image.</figcaption>
     </figure>
-  </div>
-
-  <h3 class="sub">Sensitivity to hyperparameters</h3>
-  <p class="sub-note">One hyperparameter at a time on MM-WHS MR→CT, shown as the change in Dice from each backbone's main setting (marked). Over the tested values the Dice changes by at most 3.2 points, and doubling the anchors to \(K=64\) gives no gain over \(K=32\).</p>
-  <div class="chart-card" style="margin-top:14px">
-    <div class="chart narrow" id="sens"></div>
-    <div class="legend">
-      <span><i class="line" style="background:var(--bb-unet)"></i>U-Net</span>
-      <span><i class="line" style="background:var(--bb-dino)"></i>DINOv3</span>
-      <span><i class="line" style="background:var(--bb-sam)"></i>MedSAM</span>
-    </div>
   </div>
 
   <h3 class="sub">Training cost</h3>
