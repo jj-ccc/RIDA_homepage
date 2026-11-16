@@ -135,7 +135,85 @@
     document.body.appendChild(box);
   });
 
-  /* ================= hero demo ================= */
+
+  const topbar = $(".top");
+  const onScroll = () => topbar && topbar.classList.toggle("scrolled", window.scrollY > 8);
+  window.addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
+
+  /* ================= cover: one pixel's similarities under a drifting monotone shift ================= */
+  (function drawArt() {
+    const svg = $("#art");
+    if (!svg) return;
+    const W = 520, H = 470, X0 = 44, X1 = W - 44, T = 14, B = 66, N = 32, ETA = 0.62;
+    let seed = 11;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const s = Array.from({ length: N }, (_, i) => 0.05 + 0.9 * Math.pow((i + 0.5 + 0.7 * (rnd() - 0.5)) / N, 1.12));
+    const yv = (v) => T + (1 - v) * (H - T - B);
+    const sig = (z) => 1 / (1 + Math.exp(-z));
+    // increasing in v at every t and phase, so no two strands ever cross;
+    // the map itself drifts along t, which makes the strands ripple
+    function warp(v, t, ph) {
+      const lam = t * t * (3 - 2 * t);
+      const gam = Math.exp(0.8 * Math.sin(ph + 2.4 * t));
+      const c = 0.5 + 0.2 * Math.sin(0.7 * ph + 1.1 + 1.7 * t), k = 7;
+      const lo = sig(-k * c), hi = sig(k * (1 - c));
+      const h = 0.55 * Math.pow(v, gam) + 0.45 * (sig(k * (v - c)) - lo) / (hi - lo);
+      return (1 - lam) * v + lam * h;
+    }
+    const lab = "font-size:10px;letter-spacing:.16em;fill:var(--muted);font-weight:500";
+    [X0, X1].forEach((x) => el("line", { x1: x, x2: x, y1: T - 6, y2: yv(0) + 6, style: "stroke:var(--rule-2);stroke-width:1" }, svg));
+    el("line", { x1: X0 - 14, x2: X1 + 14, y1: yv(ETA), y2: yv(ETA), style: "stroke:var(--ink-2);stroke-width:1;stroke-dasharray:2 4" }, svg);
+    el("text", { x: X0 - 20, y: yv(ETA) + 4, "text-anchor": "end", style: "font-family:var(--f-serif);font-style:italic;font-size:15px;fill:var(--ink-2)", text: "η" }, svg);
+    const g = el("g", {}, svg);
+    const top = N - 1;
+    const paths = s.map((_, i) => el("path", {
+      fill: "none", "stroke-linecap": "round",
+      style: i === top ? "stroke:var(--accent);stroke-width:1.7" : `stroke:var(--ink);stroke-width:.8;stroke-opacity:${(0.14 + 0.62 * i / (N - 1)).toFixed(2)}`,
+    }, g));
+    s.forEach((v, i) => el("circle", { cx: X0, cy: yv(v), r: i === top ? 2.8 : 1.7, style: `fill:${i === top ? "var(--accent)" : "var(--ink)"}` }, g));
+    const ends = s.map((_, i) => el("circle", { cx: X1, r: i === top ? 2.8 : 1.7, style: `fill:${i === top ? "var(--accent)" : "var(--ink)"}` }, g));
+    const yb = yv(0) + 28;
+    el("text", { x: X0, y: yb, style: lab, text: "SOURCE" }, svg);
+    el("text", { x: X1, y: yb, "text-anchor": "end", style: lab, text: "TARGET" }, svg);
+    const cnt = "font-family:var(--f-serif);font-size:14px;fill:var(--ink-2)";
+    el("text", { x: X0, y: yb + 20, style: cnt, text: `${s.filter((v) => v >= ETA).length} above η` }, svg);
+    const cntR = el("text", { x: X1, y: yb + 20, "text-anchor": "end", style: cnt }, svg);
+    const STEPS = 80;
+    function frame(ph) {
+      let n1 = 0;
+      s.forEach((v, i) => {
+        let d = "";
+        for (let j = 0; j <= STEPS; j++) {
+          const t = j / STEPS;
+          d += (j ? "L" : "M") + (X0 + t * (X1 - X0)).toFixed(1) + " " + yv(warp(v, t, ph)).toFixed(1);
+        }
+        paths[i].setAttribute("d", d);
+        const e = warp(v, 1, ph);
+        ends[i].setAttribute("cy", yv(e).toFixed(1));
+        if (e >= ETA) n1++;
+      });
+      cntR.textContent = `${n1} above η`;
+    }
+    const PH0 = 2.2;
+    frame(PH0);
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let visible = true, t0 = null, raf = 0;
+    const tick = (now) => {
+      if (t0 === null) t0 = now;
+      frame(PH0 + ((now - t0) / 26000) * 2 * Math.PI);
+      raf = visible ? requestAnimationFrame(tick) : 0;
+    };
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(([en]) => {
+        visible = en.isIntersecting;
+        if (visible && !raf) raf = requestAnimationFrame((now) => { t0 = t0 === null ? now : t0; tick(now); });
+      }).observe(svg);
+    }
+    raf = requestAnimationFrame(tick);
+  })();
+
+  /* ================= motivation demo: threshold against ranking ================= */
   const DEMO_ANCH = [
     { n: "AA", c: "#e9967a" }, { n: "LAC", c: "#e8c478" }, { n: "LVC", c: "#9c9ce4" },
     { n: "MYO", c: "#79bdb2" }, { n: "BG", c: "#b3bdbf" },
@@ -156,35 +234,33 @@
     const W = 460, L = 36, R = 44, T = 18, B = 52, H = 250 - T - B;
     const y = (v) => T + (1 - v) * H;
     [0, 0.25, 0.5, 0.75, 1].forEach((v) => {
-      el("line", { x1: L, x2: W - R, y1: y(v), y2: y(v), style: "stroke:var(--line);stroke-width:1" }, svg);
-      el("text", { x: L - 8, y: y(v) + 4, "text-anchor": "end", style: "fill:var(--muted);font-size:11px", text: v.toFixed(2) }, svg);
+      el("line", { x1: L, x2: W - R, y1: y(v), y2: y(v), style: "stroke:var(--rule);stroke-width:1" }, svg);
+      el("text", { x: L - 8, y: y(v) + 4, "text-anchor": "end", style: "fill:var(--muted);font-size:10px", text: v.toFixed(2) }, svg);
     });
-    const slot = (W - L - R) / 5, bw = 26;
+    const slot = (W - L - R) / 5, bw = 24;
     const rk = ranks(cur);
     cur.forEach((v, i) => {
       const cx = L + slot * (i + 0.5);
-      el("rect", { x: cx - bw / 2, y: y(px.sims[i]), width: bw, height: Math.max(0, y(0) - y(px.sims[i])), rx: 3, style: "fill:var(--surface-2);stroke:var(--line-2);stroke-width:1" }, svg);
-      el("rect", { x: cx - bw / 2 + 4, y: y(v), width: bw - 8, height: Math.max(0, y(0) - y(v)), rx: 3, style: `fill:${DEMO_ANCH[i].c}` }, svg);
-      el("text", { x: cx, y: y(Math.max(v, px.sims[i])) - 6, "text-anchor": "middle", style: "fill:var(--ink);font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums", text: v.toFixed(2) }, svg);
-      el("text", { x: cx, y: y(0) + 17, "text-anchor": "middle", style: "fill:var(--ink-2);font-size:12px;font-weight:600", text: DEMO_ANCH[i].n }, svg);
-      const badge = el("g", {}, svg);
-      el("rect", { x: cx - 15, y: y(0) + 25, width: 30, height: 18, rx: 9, style: "fill:var(--accent-soft)" }, badge);
-      el("text", { x: cx, y: y(0) + 38, "text-anchor": "middle", style: "fill:var(--accent);font-size:11px;font-weight:700", text: "#" + (6 - rk[i]) }, badge);
+      el("rect", { x: cx - bw / 2, y: y(px.sims[i]), width: bw, height: Math.max(0, y(0) - y(px.sims[i])), style: "fill:none;stroke:var(--ink-2);stroke-width:.8;stroke-dasharray:2 2" }, svg);
+      el("rect", { x: cx - bw / 2 + 4, y: y(v), width: bw - 8, height: Math.max(0, y(0) - y(v)), style: `fill:${DEMO_ANCH[i].c}` }, svg);
+      el("text", { x: cx, y: y(Math.max(v, px.sims[i])) - 6, "text-anchor": "middle", style: "fill:var(--ink);font-size:11px;font-variant-numeric:tabular-nums", text: v.toFixed(2) }, svg);
+      el("text", { x: cx, y: y(0) + 17, "text-anchor": "middle", style: "fill:var(--ink-2);font-size:11px;font-weight:500", text: DEMO_ANCH[i].n }, svg);
+      el("text", { x: cx, y: y(0) + 40, "text-anchor": "middle", style: "fill:var(--accent);font-family:var(--f-serif);font-size:15px", text: String(6 - rk[i]) }, svg);
     });
-    el("line", { x1: L, x2: W - R, y1: y(0.7), y2: y(0.7), style: "stroke:var(--amber);stroke-width:1.5" }, svg);
-    el("text", { x: W - R + 4, y: y(0.7) + 4, style: "fill:var(--amber);font-size:11px;font-weight:700", text: "t=0.7" }, svg);
-    el("line", { x1: L, x2: W - R, y1: y(0), y2: y(0), style: "stroke:var(--line-2);stroke-width:1" }, svg);
-    el("text", { x: W - R + 4, y: y(0) + 37, style: "fill:var(--muted);font-size:10px", text: "rank" }, svg);
+    el("line", { x1: L, x2: W - R, y1: y(0.7), y2: y(0.7), style: "stroke:var(--flip);stroke-width:1;stroke-dasharray:3 3" }, svg);
+    el("text", { x: W - R + 6, y: y(0.7) + 5, style: "fill:var(--flip);font-family:var(--f-serif);font-style:italic;font-size:14px", text: "η" }, svg);
+    el("line", { x1: L, x2: W - R, y1: y(0), y2: y(0), style: "stroke:var(--ink-2);stroke-width:1" }, svg);
+    el("text", { x: W - R + 6, y: y(0) + 39, style: "fill:var(--muted);font-size:10px", text: "rank" }, svg);
 
     const top = Math.max(...cur), own = DEMO_ANCH[px.sims.indexOf(Math.max(...px.sims))].n;
     const gate = $("#demo-gate");
     const pass = top >= 0.7;
-    gate.className = "chipline " + (pass ? "" : "bad");
-    $("span", gate).textContent = pass
-      ? `${own} similarity ${top.toFixed(2)} ≥ 0.7: pseudo-label kept`
-      : `${own} similarity ${top.toFixed(2)} < 0.7: pseudo-label dropped`;
+    gate.className = "readline" + (pass ? "" : " bad");
+    $(":scope > span", gate).textContent = pass
+      ? `${own} similarity ${top.toFixed(2)} ≥ 0.7, pseudo-label kept`
+      : `${own} similarity ${top.toFixed(2)} < 0.7, pseudo-label dropped`;
     const order = cur.map((v, i) => [v, DEMO_ANCH[i].n]).sort((a, b) => b[0] - a[0]).map((x) => x[1]).join(" › ");
-    $("#demo-rank span").textContent = `${order} · same as on the source`;
+    $(":scope > span", $("#demo-rank")).textContent = `${order}, as on the source`;
   }
   seg($("#demo .seg"), (v) => { demoPx = v; drawDemo(); });
   $("#shift").addEventListener("input", drawDemo);
@@ -238,30 +314,30 @@
     const slot = Wb / K;
     for (let i = 0; i < K; i++) {
       const x0 = L + slot * i + 6;
-      el("rect", { x: x0, y: y(rw[i]), width: 14, height: y(0) - y(rw[i]), rx: 2.5, style: `fill:${LAB_ANCH[i]};opacity:.45` }, svg);
-      el("rect", { x: x0 + 16, y: y(rs[i]), width: 14, height: y(0) - y(rs[i]), rx: 2.5, style: `fill:${LAB_ANCH[i]}` }, svg);
+      el("rect", { x: x0, y: y(rw[i]), width: 14, height: y(0) - y(rw[i]), style: `fill:${LAB_ANCH[i]};opacity:.4` }, svg);
+      el("rect", { x: x0 + 16, y: y(rs[i]), width: 14, height: y(0) - y(rs[i]), style: `fill:${LAB_ANCH[i]}` }, svg);
       el("text", { x: x0 + 15, y: y(0) + 16, "text-anchor": "middle", style: "fill:var(--ink-2);font-size:11px;font-weight:600", text: "a" + (i + 1) }, svg);
       el("text", { x: x0 + 7, y: y(0) + 30, "text-anchor": "middle", style: "fill:var(--muted);font-size:9.5px", text: "w" }, svg);
       el("text", { x: x0 + 23, y: y(0) + 30, "text-anchor": "middle", style: "fill:var(--muted);font-size:9.5px", text: "s" }, svg);
     }
     el("line", { x1: L, x2: L + Wb, y1: y(0), y2: y(0), style: "stroke:var(--line-2);stroke-width:1" }, svg);
-    el("text", { x: L, y: 12, style: "fill:var(--ink-2);font-size:11px;font-weight:600", text: "Similarity: weak (w) and strong (s) view" }, svg);
+    el("text", { x: L, y: 12, style: "fill:var(--muted);font-size:10.5px", text: "Similarity, weak (w) and strong (s) view" }, svg);
 
     // pair matrix (upper triangle)
     const cx0 = 330, cy0 = 40, c = 29;
-    el("text", { x: cx0, y: 12, style: "fill:var(--ink-2);font-size:11px;font-weight:600", text: "Anchor pairs (k, l)" }, svg);
+    el("text", { x: cx0, y: 12, style: "fill:var(--muted);font-size:10.5px", text: "Anchor pairs (k, l)" }, svg);
     for (let i = 0; i < K; i++) {
-      el("rect", { x: cx0 + c * i + 8, y: cy0 - 18, width: c - 16, height: 8, rx: 2, style: `fill:${LAB_ANCH[i]}` }, svg);
-      el("rect", { x: cx0 - 18, y: cy0 + c * i + 8, width: 8, height: c - 16, rx: 2, style: `fill:${LAB_ANCH[i]}` }, svg);
+      el("rect", { x: cx0 + c * i + 8, y: cy0 - 18, width: c - 16, height: 6, style: `fill:${LAB_ANCH[i]}` }, svg);
+      el("rect", { x: cx0 - 18, y: cy0 + c * i + 8, width: 6, height: c - 16, style: `fill:${LAB_ANCH[i]}` }, svg);
     }
     pairs.forEach(([k, l], i) => {
       const st = status[i];
-      const fill = st === "k" ? "var(--accent)" : st === "f" ? "var(--flip)" : "var(--surface-2)";
-      const r = el("rect", { x: cx0 + c * l + 1.5, y: cy0 + c * k + 1.5, width: c - 3, height: c - 3, rx: 4, style: `fill:${fill};${st === "u" ? "stroke:var(--line-2);stroke-width:1" : ""}` }, svg);
+      const fill = st === "k" ? "var(--accent)" : st === "f" ? "var(--flip)" : "var(--paper-2)";
+      const r = el("rect", { x: cx0 + c * l + 1.5, y: cy0 + c * k + 1.5, width: c - 3, height: c - 3, rx: 1, style: `fill:${fill};${st === "u" ? "stroke:var(--rule-2);stroke-width:.8" : ""}` }, svg);
       hover(r, () => `<b>a${k + 1} vs a${l + 1}</b><br>weak gap <span class="tv">${sgn(gw[i], 3)}</span>, strong gap <span class="tv">${sgn(gs[i], 3)}</span><br>${st === "u" ? "not trusted: |gap| ≤ δ" : st === "k" ? "trusted, order kept" : "trusted, order flipped"}`);
     });
     for (let i = 0; i < K; i++) {
-      el("rect", { x: cx0 + c * i + 1.5, y: cy0 + c * i + 1.5, width: c - 3, height: c - 3, rx: 4, style: "fill:none;stroke:var(--line);stroke-width:1" }, svg);
+      el("rect", { x: cx0 + c * i + 1.5, y: cy0 + c * i + 1.5, width: c - 3, height: c - 3, rx: 1, style: "fill:none;stroke:var(--rule);stroke-width:1;stroke-dasharray:2 2" }, svg);
     }
 
     $("#ro-delta").textContent = delta.toFixed(3);
@@ -303,7 +379,7 @@
     const pi = ranks(sims);
     const L = 34, T = 22, H = 112, Wb = 250;
     const y = (v) => T + (1 - v) * H;
-    el("text", { x: L, y: 12, style: "fill:var(--ink-2);font-size:11px;font-weight:600", text: "Similarity to source anchors, and rank" }, svg);
+    el("text", { x: L, y: 12, style: "fill:var(--muted);font-size:10.5px", text: "Similarity to source anchors, and rank" }, svg);
     [0, 1].forEach((v) => {
       el("line", { x1: L, x2: L + Wb, y1: y(v), y2: y(v), style: "stroke:var(--line);stroke-width:1" }, svg);
       el("text", { x: L - 6, y: y(v) + 4, "text-anchor": "end", style: "fill:var(--muted);font-size:10.5px", text: v.toFixed(1) }, svg);
@@ -311,20 +387,19 @@
     const slot = Wb / 6;
     sims.forEach((v, i) => {
       const x = L + slot * i + slot / 2;
-      el("rect", { x: x - 11, y: y(v), width: 22, height: y(0) - y(v), rx: 3, style: `fill:${RM_ANCH[i].c}` }, svg);
+      el("rect", { x: x - 10, y: y(v), width: 20, height: y(0) - y(v), style: `fill:${RM_ANCH[i].c}` }, svg);
       el("text", { x, y: y(0) + 15, "text-anchor": "middle", style: "fill:var(--ink-2);font-size:10.5px;font-weight:600", text: RM_ANCH[i].cls }, svg);
-      el("rect", { x: x - 13, y: y(0) + 21, width: 26, height: 17, rx: 8.5, style: "fill:var(--accent-soft)" }, svg);
-      el("text", { x, y: y(0) + 33.5, "text-anchor": "middle", style: "fill:var(--accent);font-size:10.5px;font-weight:700", text: String(pi[i]) }, svg);
+      el("text", { x, y: y(0) + 34, "text-anchor": "middle", style: "fill:var(--accent);font-family:var(--f-serif);font-size:14px", text: String(pi[i]) }, svg);
     });
     // signatures as rank strips
     const sx = 312;
-    el("text", { x: sx, y: 12, style: "fill:var(--ink-2);font-size:11px;font-weight:600", text: "Class signatures μ (mean source rank)" }, svg);
+    el("text", { x: sx, y: 12, style: "fill:var(--muted);font-size:10.5px", text: "Class signatures μ, mean source rank" }, svg);
     Object.entries(SIG).forEach(([cls, mu], r) => {
       const yy = 26 + r * 36;
       el("text", { x: sx, y: yy + 15, style: "fill:var(--ink-2);font-size:11px;font-weight:600", text: cls }, svg);
       mu.forEach((v, i) => {
         const a = 0.12 + 0.88 * (v - 1) / 5;
-        el("rect", { x: sx + 38 + i * 26, y: yy, width: 23, height: 22, rx: 3, style: `fill:var(--accent);opacity:${a.toFixed(2)}` }, svg);
+        el("rect", { x: sx + 38 + i * 26, y: yy, width: 23, height: 22, style: `fill:var(--accent);opacity:${a.toFixed(2)}` }, svg);
         el("text", { x: sx + 38 + i * 26 + 11.5, y: yy + 15, "text-anchor": "middle", style: `fill:${a > 0.55 ? "var(--on-accent)" : "var(--ink)"};font-size:9.5px;font-weight:600`, text: v.toFixed(1) }, svg);
       });
     });
@@ -333,16 +408,16 @@
     const sorted = Object.entries(rho).sort((a, b) => b[1] - a[1]);
     const label = sorted[0][0], m = sorted[0][1] - sorted[1][1];
     const by = 210, zx = 300, sc = 150;
-    el("text", { x: L, y: by - 10, style: "fill:var(--ink-2);font-size:11px;font-weight:600", text: "Rank correlation ρ with each signature" }, svg);
+    el("text", { x: L, y: by - 10, style: "fill:var(--muted);font-size:10.5px", text: "Rank correlation ρ with each signature" }, svg);
     el("line", { x1: zx, x2: zx, y1: by - 4, y2: by + 3 * 30 - 6, style: "stroke:var(--line-2);stroke-width:1" }, svg);
     ["-1", "0", "+1"].forEach((t, i) => el("text", { x: zx + (i - 1) * sc, y: by + 3 * 30 + 6, "text-anchor": "middle", style: "fill:var(--muted);font-size:10px", text: t }, svg));
     Object.entries(rho).forEach(([cls, v], r) => {
       const yy = by + r * 30;
       const win = cls === label;
       el("text", { x: zx - sc - 8, y: yy + 14, "text-anchor": "end", style: "fill:var(--ink-2);font-size:11px;font-weight:600", text: cls }, svg);
-      el("rect", { x: zx - sc, y: yy + 3, width: 2 * sc, height: 16, rx: 3, style: "fill:var(--surface-2)" }, svg);
+      el("rect", { x: zx - sc, y: yy + 3, width: 2 * sc, height: 14, style: "fill:var(--paper-2)" }, svg);
       const x0 = v >= 0 ? zx : zx + v * sc;
-      el("rect", { x: x0, y: yy + 3, width: Math.abs(v) * sc, height: 16, rx: 3, style: `fill:${win ? "var(--accent)" : "var(--gray-1)"}` }, svg);
+      el("rect", { x: x0, y: yy + 3, width: Math.abs(v) * sc, height: 14, style: `fill:${win ? "var(--accent)" : "var(--gray-1)"}` }, svg);
       el("text", { x: zx + sc + 8, y: yy + 15, style: `fill:${win ? "var(--accent)" : "var(--ink-2)"};font-size:11.5px;font-weight:700;font-variant-numeric:tabular-nums`, text: (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(3) }, svg);
     });
     $("#rm-label").textContent = label;
@@ -394,20 +469,22 @@
     let yy = 26;
     items.forEach((it) => {
       if (it.head) {
-        const ht = el("text", { x: 0, y: yy + 20, style: "font-size:12.5px;font-weight:700;fill:var(--ink)", text: it.head + "  " }, svg);
-        el("tspan", { style: "font-size:10.5px;font-weight:500;fill:var(--muted)", text: it.metric }, ht);
+        const ht = el("text", { x: 0, y: yy + 20, style: "font-family:var(--f-serif);font-size:15px;fill:var(--ink)", text: it.head + "  " }, svg);
+        el("tspan", { style: "font-family:var(--f-sans);font-size:10px;letter-spacing:.08em;fill:var(--muted)", text: it.metric.toUpperCase() }, ht);
         yy += headH;
         return;
       }
       const cy = yy + rowH / 2;
       const g = el("g", {}, svg);
-      el("rect", { x: 0, y: yy, width: W, height: rowH, style: "fill:transparent" }, g);
+      const bg = el("rect", { x: 0, y: yy, width: W, height: rowH, style: "fill:transparent" }, g);
+      g.addEventListener("pointerenter", () => (bg.style.fill = "var(--paper-2)"));
+      g.addEventListener("pointerleave", () => (bg.style.fill = "transparent"));
       el("text", { x: 14, y: cy + 4, style: "font-size:11.5px;fill:var(--ink-2)", text: it.bb }, g);
-      el("line", { x1: x(it.c.v), x2: x(it.r), y1: cy, y2: cy, style: "stroke:var(--gray-1);stroke-width:2" }, g);
+      el("line", { x1: x(it.c.v), x2: x(it.r), y1: cy, y2: cy, style: "stroke:var(--gray-1);stroke-width:1.5" }, g);
       el("rect", { x: x(it.seed.mean - it.seed.std), y: cy - 4, width: Math.max(2, x(it.seed.mean + it.seed.std) - x(it.seed.mean - it.seed.std)), height: 8, rx: 4, style: "fill:var(--accent);opacity:.28" }, g);
       el("circle", { cx: x(it.c.v), cy, r: 5, style: "fill:var(--gray-2);stroke:var(--surface);stroke-width:2" }, g);
       el("circle", { cx: x(it.r), cy, r: 5.5, style: "fill:var(--accent);stroke:var(--surface);stroke-width:2" }, g);
-      el("text", { x: W - R + 16, y: cy + 4, style: "font-size:11.5px;font-weight:700;fill:var(--ink);font-variant-numeric:tabular-nums", text: sgn(it.r - it.c.v) }, g);
+      el("text", { x: W - R + 16, y: cy + 4, style: "font-size:11.5px;font-weight:500;fill:var(--ink);font-variant-numeric:tabular-nums", text: sgn(it.r - it.c.v) }, g);
       hover(g, `<b>${it.bench} ${it.dir} · ${it.bb}</b><br>RIDA <span class="tv">${fmt(it.r)}</span> · ${MNAME[it.c.k]} <span class="tv">${fmt(it.c.v)}</span><br>Δ <span class="tv">${sgn(it.r - it.c.v)}</span> ${it.metric}<br>RIDA over 3 seeds <span class="tv">${fmt(it.seed.mean)} ± ${fmt(it.seed.std)}</span>`);
       yy += rowH;
     });
@@ -450,10 +527,10 @@
       el("line", { x1: x(t), x2: x(t), y1: 22, y2: H - 8, class: "grid-line" }, svg);
       el("text", { x: x(t), y: 14, "text-anchor": "middle", style: "font-size:11px;fill:var(--muted)", text: t }, svg);
     }
-    const refLine = (k, color, label) => {
+    const refLine = (k, color, label, dash) => {
       if (!rows[k]) return;
       const xv = x(v(k));
-      el("line", { x1: xv, x2: xv, y1: 22, y2: H - 8, style: `stroke:${color};stroke-width:1.5` }, svg);
+      el("line", { x1: xv, x2: xv, y1: 22, y2: H - 8, style: `stroke:${color};stroke-width:1.2${dash ? ";stroke-dasharray:4 3" : ""}` }, svg);
       const tg = el("text", { x: xv + 4, y: H - 10, style: `font-size:10.5px;font-weight:600;fill:var(--ink-2)`, text: `${label} ${fmt(v(k))}` }, svg);
       if (xv > W - R - 110) { tg.setAttribute("x", xv - 4); tg.setAttribute("text-anchor", "end"); }
     };
@@ -463,26 +540,26 @@
       const isR = k === "rida", isB = best && k === best.k;
       const g = el("g", {}, svg);
       el("rect", { x: 0, y: yy, width: W, height: rowH, style: `fill:${isR ? "var(--accent-soft)" : "transparent"}` }, g);
-      el("text", { x: 12, y: cy + 4, style: `font-size:12px;font-weight:${isR || isB ? 700 : 500};fill:${isR ? "var(--accent)" : "var(--ink)"}`, text: MNAME[k] }, g);
+      el("text", { x: 10, y: cy + 4, style: `font-size:12px;font-weight:${isR || isB ? 600 : 400};fill:${isR ? "var(--accent)" : "var(--ink)"}`, text: MNAME[k] }, g);
       el("line", { x1: L, x2: W - R, y1: cy, y2: cy, style: "stroke:var(--line);stroke-width:1" }, g);
       const base = lb ? x(0) : x(lo);
       el("line", { x1: base, x2: x(val), y1: cy, y2: cy, style: `stroke:${isR ? "var(--accent)" : isB ? "var(--gray-2)" : "var(--gray-1)"};stroke-width:2;opacity:.55` }, g);
       el("circle", { cx: x(val), cy, r: isR ? 6.5 : 5, style: `fill:${isR ? "var(--accent)" : isB ? "var(--gray-2)" : "var(--gray-1)"};stroke:var(--surface);stroke-width:2` }, g);
-      el("text", { x: W - 10, y: cy + 4, "text-anchor": "end", style: `font-size:12px;font-weight:${isR || isB ? 700 : 500};fill:var(--ink);font-variant-numeric:tabular-nums`, text: fmt(val) }, g);
+      el("text", { x: W - 10, y: cy + 4, "text-anchor": "end", style: `font-size:12px;font-weight:${isR || isB ? 600 : 400};fill:var(--ink);font-variant-numeric:tabular-nums`, text: fmt(val) }, g);
       const d = isR && best ? ` · ${sgn(lb ? best.v - val : val - best.v)} vs ${MNAME[best.k]}` : "";
       hover(g, `<b>${MNAME[k]}</b><br>${metric} <span class="tv">${fmt(val)}</span>${d}`);
       yy += rowH;
     };
     famOrder.forEach((f) => {
-      el("text", { x: 12, y: yy + 17, style: "font-size:10px;letter-spacing:.08em;font-weight:600;fill:var(--muted)", text: FAMLABEL[f].toUpperCase() }, svg);
+      el("text", { x: 0, y: yy + 18, style: "font-family:var(--f-serif);font-style:italic;font-size:13px;fill:var(--muted)", text: FAMLABEL[f] }, svg);
       yy += famH;
       METHODS.filter((m) => m.family === f).forEach((m) => drawRow(m.key));
     });
     yy += 8;
-    el("line", { x1: 0, x2: W, y1: yy - 4, y2: yy - 4, style: "stroke:var(--line-2);stroke-width:1" }, svg);
+    el("line", { x1: 0, x2: W, y1: yy - 4, y2: yy - 4, style: "stroke:var(--ink-2);stroke-width:1" }, svg);
     drawRow("rida");
     refLine("oracle", "var(--ink-2)", "Oracle");
-    refLine("srconly", "var(--amber)", "Source-only");
+    refLine("srconly", "var(--muted)", "Source-only", true);
     const host = $("#explorer");
     host.innerHTML = "";
     host.appendChild(svg);
@@ -541,7 +618,7 @@
   setView();
 
   /* ================= per-class heat table ================= */
-  const heat = (t) => `background:color-mix(in srgb, var(--accent) ${(4 + 30 * t).toFixed(0)}%, transparent)`;
+  const heat = (t) => `background:color-mix(in srgb, var(--accent) ${(2 + 16 * t).toFixed(0)}%, transparent)`;
   function heatTable(head1, head2, keys, getRow, colMeta, sepEvery) {
     const data = keys.map((k) => getRow(k));
     const ncol = colMeta.length;
@@ -617,11 +694,13 @@
       const cy = T + i * rowH + rowH / 2;
       const best = rida >= Math.max(daf, mic);
       const g = el("g", {}, svg);
-      el("rect", { x: 0, y: cy - rowH / 2, width: W, height: rowH, style: "fill:transparent" }, g);
-      el("text", { x: 8, y: cy + 4, style: `font-size:12px;font-weight:${best ? 700 : 500};fill:var(--ink)`, text: r.cls }, g);
+      const bg = el("rect", { x: 0, y: cy - rowH / 2, width: W, height: rowH, style: "fill:transparent" }, g);
+      g.addEventListener("pointerenter", () => (bg.style.fill = "var(--paper-2)"));
+      g.addEventListener("pointerleave", () => (bg.style.fill = "transparent"));
+      el("text", { x: 8, y: cy + 4, style: `font-size:12px;font-weight:${best ? 600 : 400};fill:var(--ink)`, text: r.cls }, g);
       el("line", { x1: L, x2: W - R, y1: cy, y2: cy, style: "stroke:var(--line);stroke-width:1" }, g);
       const vs = [daf, mic, rida];
-      el("line", { x1: x(Math.min(...vs)), x2: x(Math.max(...vs)), y1: cy, y2: cy, style: "stroke:var(--gray-1);stroke-width:2" }, g);
+      el("line", { x1: x(Math.min(...vs)), x2: x(Math.max(...vs)), y1: cy, y2: cy, style: "stroke:var(--gray-1);stroke-width:1.5" }, g);
       el("line", { x1: x(orc), x2: x(orc), y1: cy - 7, y2: cy + 7, style: "stroke:var(--ink-2);stroke-width:2" }, g);
       el("circle", { cx: x(daf), cy, r: 4.5, style: "fill:var(--gray-1);stroke:var(--surface);stroke-width:2" }, g);
       el("circle", { cx: x(mic), cy, r: 4.5, style: "fill:var(--gray-2);stroke:var(--surface);stroke-width:2" }, g);
@@ -648,16 +727,14 @@
   };
   function drawQual(kind) {
     $("#qual-legend").innerHTML = QLEG[kind].map(([c, n]) => `<span><i style="background:${c}"></i>${n}</span>`).join("");
-    $("#qual").innerHTML = QUAL[kind].map(([id, task, bb]) => `
-      <div class="qual">
-        <p class="qual-title">${task} <span>${bb}</span></p>
-        <div class="qual-row">
-          <img src="static/img/qual_${id}_image.webp" alt="${task} target image" loading="lazy" width="472" height="472">
-          <img src="static/img/qual_${id}_rida.webp" alt="RIDA prediction with errors marked, ${task}, ${bb}" loading="lazy" width="472" height="472">
-          <img src="static/img/qual_${id}_gt.webp" alt="Ground truth, ${task}" loading="lazy" width="472" height="472">
-        </div>
-        <div class="qual-cap"><span>Image</span><span>RIDA</span><span>Ground truth</span></div>
-      </div>`).join("");
+    let h = '<span class="sh blank"></span><span class="sh">Target image</span><span class="sh">RIDA</span><span class="sh">Ground truth</span>';
+    QUAL[kind].forEach(([id, task, bb]) => {
+      h += `<p class="rl">${task}<span>${bb}</span></p>
+        <img src="static/img/qual_${id}_image.webp" alt="${task} target image" loading="lazy" width="472" height="472">
+        <img src="static/img/qual_${id}_rida.webp" alt="RIDA prediction with errors marked, ${task}, ${bb}" loading="lazy" width="472" height="472">
+        <img src="static/img/qual_${id}_gt.webp" alt="Ground truth, ${task}" loading="lazy" width="472" height="472">`;
+    });
+    $("#qual").innerHTML = h;
   }
   seg($("#qual-tab"), drawQual);
   drawQual("med");
@@ -673,11 +750,11 @@
       h += `<tr class="${ours ? "ours" : ""}"><td>${r.method === "Threshold (Eq. 2)" ? "Confidence threshold" : r.method}</td>`;
       r.vals.forEach((v, i) => {
         const pct = (v / max[i]) * 100;
-        h += `<td class="${i && i % 2 === 0 ? "sep" : ""}"><div style="display:flex;align-items:center;gap:8px;justify-content:flex-end"><span style="display:block;height:6px;border-radius:3px;width:${(pct * 0.42).toFixed(1)}px;background:${ours ? "var(--accent)" : "var(--gray-1)"}"></span>${v.toFixed(2)}</div></td>`;
+        h += `<td class="${i && i % 2 === 0 ? "sep" : ""}"><div style="display:flex;align-items:center;gap:8px;justify-content:flex-end"><span style="display:block;height:4px;width:${(pct * 0.42).toFixed(1)}px;background:${ours ? "var(--accent)" : "var(--gray-1)"}"></span>${v.toFixed(2)}</div></td>`;
       });
       h += "</tr>";
     });
-    h += "</tbody></table></div><p class=\"tbl-foot\">Training time per iteration (s) and peak GPU memory (GB) on MM-WHS MR→CT.</p>";
+    h += "</tbody></table></div>";
     $("#cost").innerHTML = h;
   })();
 })();

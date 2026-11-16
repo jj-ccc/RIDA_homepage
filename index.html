@@ -7,7 +7,7 @@
 <meta name="description" content="RIDA: a universal rank-invariant domain adaptation method for biomedical image segmentation. Code, checkpoints and results on 24 settings.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Schibsted+Grotesk:wght@400;500;600;700;800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..600&display=swap">
 <link rel="stylesheet" href="static/css/style.css">
 <script>
   window.MathJax = {
@@ -20,379 +20,280 @@
 </head>
 <body>
 
-<header class="topbar">
-  <div class="sheet">
-    <a class="brand" href="#top" aria-label="RIDA, back to top">
-      <span class="brand-chips" aria-hidden="true"><i style="background:var(--a1)"></i><i style="background:var(--a2)"></i><i style="background:var(--a3)"></i><i style="background:var(--a4)"></i></span>
-      RIDA
-    </a>
+<header class="top">
+  <div class="page top-in">
+    <a class="brand" href="#top">RIDA</a>
     <nav class="nav" aria-label="Sections">
-      <a href="#overview">Overview</a>
       <a href="#motivation">Motivation</a>
       <a href="#method">Method</a>
       <a href="#theory">Theory</a>
       <a href="#results">Results</a>
       <a href="#analysis">Analysis</a>
       <a href="#code">Code</a>
-      <a href="#citation">Citation</a>
+      <a href="#citation">Cite</a>
     </nav>
   </div>
 </header>
 
 <main id="top">
 
-<!-- ================= HERO ================= -->
-<section class="hero">
-  <div class="sheet hero-grid">
-    <div>
-      <p class="eyebrow rise">Unsupervised domain adaptation · Biomedical image segmentation</p>
-      <div class="wordmark rise d1" aria-hidden="true">
-        <span>RIDA</span>
-        <span class="rank-stack"><i style="background:var(--a1)"></i><i style="background:var(--a2)"></i><i style="background:var(--a3)"></i><i style="background:var(--a4)"></i></span>
+<section class="hero page">
+  <div class="hero-text">
+    <h1 class="title">A Universal <em class="nw">Rank-Invariant</em> Domain Adaptation Method for Biomedical Image Segmentation</h1>
+    <p class="byline">Yujia Chen<sup>1</sup>, Rui Sun<sup>2</sup>, Yuan Wang<sup>1</sup>, Tianzhu Zhang<sup>1,*</sup>, Naisong Luo<sup>1</sup>, Feng Wu<sup>1</sup></p>
+    <p class="affil"><sup>1</sup>School of Information Science and Technology, University of Science and Technology of China<br><sup>2</sup>Shenzhen International Graduate School, Tsinghua University&emsp;<sup>*</sup>Corresponding author</p>
+    <p class="links">
+      <span class="soon" title="The paper link will be added here">Paper <i>coming soon</i></span>
+      <a href="https://github.com/jj-ccc/RIDA" target="_blank" rel="noopener">Code</a>
+      <a href="https://huggingface.co/jiajianihao/RIDA" target="_blank" rel="noopener">Checkpoints</a>
+      <a href="#citation">BibTeX</a>
+    </p>
+  </div>
+  <figure class="art">
+    <svg id="art" viewBox="0 0 520 470" role="img" aria-label="Thirty-two lines carried from a source to a target domain by a changing increasing map: their heights change, their order does not"></svg>
+    <figcaption>One pixel, thirty-two anchors. A drifting monotone shift moves every similarity; a fixed threshold \(\eta\) keeps a different number of them, and their order never changes. Schematic.</figcaption>
+  </figure>
+</section>
+
+<section class="statement page">
+  <p>Imaging physics changes how a structure looks, not what it is. RIDA describes each pixel by the <em>order</em> in which it resembles a few anchors, and builds all supervision on the unlabeled target domain from that order.</p>
+</section>
+
+<section class="sec page" id="abstract">
+  <div class="rail"><span class="nm">Abstract</span></div>
+  <div class="body twin">
+    <div class="prose">
+      <p>Unsupervised domain adaptation usually supervises unlabeled target images with magnitudes such as prediction confidence. Under a biomedical shift these magnitudes move by class-dependent amounts, so a fixed gate admits confident mistakes that self-training then reinforces.</p>
+      <p>RIDA keeps the teacher–student scheme and builds every target signal on rankings instead. <b>Rank consistency</b> keeps the comparisons that the weak view separates clearly. <b>Rank matching</b> labels target pixels against class signatures from labeled source pixels. <b>Rank-stable self-training</b> weights pseudo-labels by the share of comparisons that survive strong augmentation. On eight electron microscopy and cross-modality tasks with three backbones, RIDA outperforms 12 recent methods in all 24 settings.</p>
+    </div>
+    <dl class="ledger">
+      <div><dt>24<small>/24</small></dt><dd>settings with the best Dice or F1</dd></div>
+      <div><dt>+3.09</dt><dd>Dice over the strongest competitor, cross-modality average</dd></div>
+      <div><dt>+1.17</dt><dd>F1 over the strongest competitor, electron microscopy average</dd></div>
+      <div><dt>0</dt><dd>added cost at inference</dd></div>
+    </dl>
+  </div>
+</section>
+
+<!-- 1 · Motivation -->
+<section class="sec page" id="motivation">
+  <div class="rail"><span class="no">1</span><span class="nm">Motivation</span></div>
+  <div class="body">
+    <h2>Same anatomy, different physics.</h2>
+    <div class="twin">
+      <div class="prose">
+        <p>CT records X-ray attenuation and MR records proton relaxation; in electron microscopy, contrast depends on the microscope, the stain and the specimen. The same tissue can be bright in one domain and dark in the other, and feature similarities move by amounts that differ from structure to structure.</p>
+        <p>Their order moves far less. In CT as in MR, a pixel of the left ventricle cavity resembles that cavity most, the left atrium less and the background least. Confidence, the signal most self-training trusts, is a magnitude: under shift, a confident mistake passes the gate and the model learns from it.</p>
       </div>
-      <h1 class="rise d1">A Universal Rank-Invariant Domain Adaptation Method for Biomedical Image Segmentation</h1>
-      <p class="authors rise d2">
-        <span>Yujia Chen<sup>1</sup></span>,
-        <span>Rui Sun<sup>2</sup></span>,
-        <span>Yuan Wang<sup>1</sup></span>,
-        <span>Tianzhu Zhang<sup>1,*</sup></span>,
-        <span>Naisong Luo<sup>1</sup></span>,
-        <span>Feng Wu<sup>1</sup></span>
-      </p>
-      <p class="affils rise d2">
-        <sup>1</sup> School of Information Science and Technology, University of Science and Technology of China<br>
-        <sup>2</sup> Shenzhen International Graduate School, Tsinghua University<br>
-        <sup>*</sup> Corresponding author
-      </p>
-      <div class="links rise d3">
-        <span class="btn soon" title="The paper link will be added here">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/></svg>
-          Paper · coming soon
-        </span>
-        <a class="btn primary" href="https://github.com/jj-ccc/RIDA" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.08.63-1.33-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.5 9.5 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.75c0 .27.18.58.69.48A10 10 0 0 0 12 2z"/></svg>
-          Code
-        </a>
-        <a class="btn" href="https://huggingface.co/jiajianihao/RIDA" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
-          24 checkpoints
-        </a>
-        <a class="btn" href="#citation">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M7 7h4v4c0 3-1.5 5-4 6"/><path d="M14 7h4v4c0 3-1.5 5-4 6"/></svg>
-          BibTeX
-        </a>
-      </div>
+      <figure class="side">
+        <div class="plate"><img src="static/img/fig1a_domains.webp" width="1045" height="1539" alt="Pairs of images of the same structure in two domains: GTA5 and Cityscapes cars, MM-WHS MR and CT hearts, MitoEM human and rat mitochondria" loading="lazy"></div>
+        <figcaption><span class="fn">Fig. 1</span>The same structures in two domains. Natural images share the physics of visible light; across modalities or species, tissue contrast can invert.</figcaption>
+      </figure>
     </div>
 
-    <div class="demo rise d2" id="demo">
-      <div class="demo-head">
-        <h2>Magnitudes shift. Order survives.</h2>
-        <span class="tag">Schematic</span>
-      </div>
-      <div class="demo-controls">
-        <div class="seg" role="group" aria-label="Pixel class">
-          <button type="button" data-px="aa" aria-pressed="false">AA pixel</button>
-          <button type="button" data-px="lvc" aria-pressed="false">LVC pixel</button>
-          <button type="button" data-px="myo" aria-pressed="true">MYO pixel</button>
+    <figure class="inset" id="demo">
+      <div class="inset-grid">
+        <svg id="demo-svg" viewBox="0 0 460 250" role="img" aria-label="Similarity of one pixel to five anchors before and after an imaging shift"></svg>
+        <div class="inset-side">
+          <div class="seg" role="group" aria-label="Pixel class">
+            <button type="button" data-px="aa" aria-pressed="false">AA pixel</button>
+            <button type="button" data-px="lvc" aria-pressed="false">LVC pixel</button>
+            <button type="button" data-px="myo" aria-pressed="true">MYO pixel</button>
+          </div>
+          <label class="slider" for="shift"><span>MR</span><input id="shift" type="range" min="0" max="1" step="0.01" value="0.7"><span>CT</span></label>
+          <p class="readline" id="demo-gate"><b>Threshold \(\eta = 0.7\)</b><span></span></p>
+          <p class="readline good" id="demo-rank"><b>Ranking</b><span></span></p>
+          <figcaption><span class="fn">Fig. 2</span>One pixel against five anchors, schematic values. Each class gets its own increasing change of similarity, so a fixed threshold keeps one class and drops another. The anchor order stays where it was.</figcaption>
         </div>
-        <label class="slider" for="shift">
-          <span>Source MR</span>
-          <input id="shift" type="range" min="0" max="1" step="0.01" value="0.7">
-          <span>Target CT</span>
-        </label>
       </div>
-      <svg id="demo-svg" viewBox="0 0 460 250" role="img" aria-label="Similarity of one pixel to five anchors before and after an imaging shift"></svg>
-      <div class="demo-read">
-        <div class="chipline" id="demo-gate"><b>Confidence gate at 0.7</b><span></span></div>
-        <div class="chipline good" id="demo-rank"><b>Ranking of the anchors</b><span></span></div>
-      </div>
-      <p class="demo-note">Illustrative values. Each class gets its own increasing change of similarity, so a fixed threshold keeps a different share of each class, while the order of a pixel's anchors does not move.</p>
-    </div>
-  </div>
-</section>
-
-<!-- ================= STATS ================= -->
-<div class="stats" aria-label="Headline results">
-  <div class="sheet">
-    <div class="stat"><div class="v acc">24<small>/24</small></div><div class="l">settings where RIDA has the best Dice or F1</div></div>
-    <div class="stat"><div class="v">+3.09</div><div class="l">Dice over the strongest competitor, cross-modality average</div></div>
-    <div class="stat"><div class="v">+1.17</div><div class="l">F1 over the strongest competitor, electron microscopy average</div></div>
-    <div class="stat"><div class="v">12</div><div class="l">recent UDA methods, reproduced on the same three backbones</div></div>
-    <div class="stat"><div class="v">0</div><div class="l">extra cost at inference: anchors and rankings are dropped</div></div>
-  </div>
-</div>
-
-<div class="sheet">
-
-<!-- ================= OVERVIEW ================= -->
-<section class="block" id="overview">
-  <div class="sec-head">
-    <p class="eyebrow">Overview</p>
-    <h2>Supervise the target domain with order, not with values</h2>
-  </div>
-  <div class="cols wide-left">
-    <div class="stack">
-      <p class="tldr">RIDA describes every pixel by the order in which it resembles a few anchors, and builds all supervision for the unlabeled target domain on that order instead of on magnitudes such as confidence.</p>
-      <div class="abstract stack">
-        <p>Biomedical domain shifts change the imaging process but not the imaged structures: the same tissue may appear bright in one domain and dark in another, yet the relative resemblance among structures is largely preserved. Current unsupervised domain adaptation (UDA) methods supervise unlabeled target images with magnitudes such as prediction confidence, which shift by class-dependent amounts and admit mistakes that self-training reinforces.</p>
-        <p>We propose Rank-Invariant Domain Adaptation (RIDA), which describes each pixel by its ranking of a few anchors and constructs all target supervision from these rankings. <b>Rank consistency</b> trains each target pixel to keep the pairwise comparisons that the weak view separates clearly. <b>Rank matching</b> labels target pixels by comparing their rankings with class signatures built from labeled source pixels. <b>Rank-stable self-training</b> weights teacher pseudo-labels by the fraction of these comparisons that keep their order across views, instead of by confidence.</p>
-        <p>On eight electron microscopy and cross-modality transfer tasks with three backbones, RIDA achieves a higher Dice or F1 score than 12 recent UDA methods in all 24 settings.</p>
-      </div>
-    </div>
-    <div class="ds-col">
-      <p class="eyebrow" style="margin-bottom:12px">Eight transfer tasks × three backbones</p>
-      <div class="ds-grid" style="grid-template-columns:repeat(2,minmax(0,1fr))">
-        <div class="ds"><p class="k">Medical · organs</p><h4>Abdomen</h4><p>CHAOS T2-SPIR MR and BTCV CT. Liver, right and left kidney, spleen.</p><p class="dirs">MR→CT · CT→MR</p></div>
-        <div class="ds"><p class="k">Medical · heart</p><h4>MM-WHS</h4><p>Ascending aorta, left atrium and left ventricle blood cavities, myocardium.</p><p class="dirs">MR→CT · CT→MR</p></div>
-        <div class="ds"><p class="k">Biological · EM</p><h4>VNC III → Lucchi</h4><p><i>Drosophila</i> ssTEM to mouse hippocampus FIB-SEM mitochondria.</p><p class="dirs">Subset 1 · Subset 2</p></div>
-        <div class="ds"><p class="k">Biological · EM</p><h4>MitoEM</h4><p>Rat and human cortex, multi-beam SEM mitochondria.</p><p class="dirs">R→H · H→R</p></div>
-      </div>
-      <p class="sub-note" style="margin-top:18px">Backbones: U-Net trained from scratch, DINOv3 ViT-L/16, and MedSAM ViT-B with LoRA adapters.</p>
-    </div>
-  </div>
-</section>
-
-<!-- ================= MOTIVATION ================= -->
-<section class="block" id="motivation">
-  <div class="sec-head">
-    <p class="eyebrow">Motivation</p>
-    <h2>Same anatomy, different physics</h2>
-  </div>
-  <div class="cols">
-    <div class="stack read">
-      <p>A biomedical domain shift changes the imaging process. CT records X-ray attenuation and MR records proton relaxation; in electron microscopy, contrast depends on the microscope, the staining protocol and the specimen preparation. The same structure can therefore look bright in one domain and dark in the other, and the magnitudes of feature similarities move by amounts that differ from structure to structure.</p>
-      <p>The two domains still contain the same structures. Whichever microscope acquires the image, a pixel inside a mitochondrion resembles other mitochondrial pixels more than cytoplasm. In both CT and MR, a pixel in the left ventricle blood cavity resembles that cavity most, the neighbouring left atrium less, and the background least. A biomedical shift should change the <i>magnitudes</i> of these similarities but largely keep their <i>order</i>.</p>
-      <p>Most UDA supervision reads magnitudes. Self-training keeps pseudo-labels whose confidence passes a threshold or weights them by confidence; distribution alignment assumes that a value means the same thing in both domains once the distributions match. Confidence is poorly calibrated in deep networks and gets worse under shift, so on the target domain a confident mistake passes the gate, and the model that made it then learns from it.</p>
-    </div>
-    <figure>
-      <div class="plate" style="max-width:420px;margin-inline:auto"><img src="static/img/fig1a_domains.webp" width="1045" height="1539" alt="Pairs of images of the same structure in two domains: GTA5 and Cityscapes cars, MM-WHS MR and CT hearts, MitoEM human and rat mitochondria" loading="lazy"></div>
-      <figcaption><b>The same structures in two domains.</b> In natural images both domains are formed by visible light; in medical and biological images the same tissue can invert its contrast across modalities or species.</figcaption>
     </figure>
   </div>
-
-  <h3 class="sub">What changes when supervision is built on order</h3>
-  <div class="tbl-wrap">
-    <table class="contrast">
-      <thead><tr><th scope="col"></th><th scope="col">Magnitude-based self-training</th><th scope="col" class="ours">RIDA</th></tr></thead>
-      <tbody>
-        <tr><td>Which pseudo-labels are used</td><td>Confidence above a threshold \(\eta\), or weighted by confidence</td><td class="ours">Weighted by rank stability \(s\): the share of trusted anchor pairs that keep their order from the weak to the strong view</td></tr>
-        <tr><td>How source labels reach the target</td><td>Prototypes or class means compared by value</td><td class="ours">Class signatures, the average source ranking of each class, compared by rank correlation</td></tr>
-        <tr><td>Consistency between views</td><td>Values or softmax distributions over correlations</td><td class="ours">The sign of each similarity gap, on pairs that the weak view separates clearly</td></tr>
-        <tr><td>Unchanged by</td><td>Little beyond a global rescaling</td><td class="ours">Any increasing change of a pixel's similarities, whatever its size and whatever its class</td></tr>
-      </tbody>
-    </table>
-  </div>
 </section>
 
-<!-- ================= METHOD ================= -->
-<section class="block" id="method">
-  <div class="sec-head">
-    <p class="eyebrow">Method</p>
-    <h2>Three losses, one invariant</h2>
-    <p class="lede">RIDA keeps the teacher–student scheme of self-training. The teacher, an exponential moving average of the student, reads a weakly augmented view of each target image; the student reads a strongly augmented view of the same image. RIDA replaces the confidence-thresholded self-training loss with three losses built on rankings.</p>
-  </div>
+<!-- 2 · Method -->
+<section class="sec page" id="method">
+  <div class="rail"><span class="no">2</span><span class="nm">Method</span></div>
+  <div class="body">
+    <h2>Three losses, one invariant.</h2>
+    <p class="prose">RIDA keeps the teacher–student scheme of self-training: an EMA teacher reads a weakly augmented view of each target image and the student reads a strongly augmented one. The confidence-gated loss is replaced by three losses built on rankings.</p>
 
-  <figure>
-    <div class="plate"><img src="static/img/fig2.webp" width="2400" height="1338" alt="Overview of RIDA: source and target branches with encoder, decoder, class signatures, rank matching, rank consistency and rank-stable self-training" loading="lazy"></div>
-    <figcaption><b>Overview of RIDA.</b> (a) Rank matching labels a target pixel with the class whose signature best matches its ranking against the source anchors, weighted by the margin \(m\). (b) Rank consistency trains the strong view to keep the order of the weak view on trusted pairs of target anchors. (c) Rank-stable self-training weights the teacher's pseudo-labels by the fraction \(s\) of trusted pairs that keep their order. Click to enlarge.</figcaption>
-  </figure>
+    <figure class="wide">
+      <div class="plate"><img src="static/img/fig2.webp" width="2400" height="1338" alt="Overview of RIDA: source and target branches with encoder, decoder, class signatures, rank matching, rank consistency and rank-stable self-training" loading="lazy"></div>
+      <figcaption><span class="fn">Fig. 3</span>Overview. (a) Rank matching labels a target pixel by the class signature that best matches its ranking against the source anchors, weighted by the margin \(m\). (b) Rank consistency trains the strong view to keep the order of the weak view on trusted anchor pairs. (c) Rank-stable self-training weights the teacher’s pseudo-labels by the share \(s\) of trusted pairs that keep their order.</figcaption>
+    </figure>
 
-  <h3 class="sub">Anchors and rankings</h3>
-  <div class="cols">
-    <div class="stack read">
-      <p>RIDA represents the main structures of the images by a few pixels, the <b>anchors</b> \(A=[a_1;\dots;a_K]\), and describes each location \(u\) with unit-length feature \(f_u\) by its similarities and its ranking:</p>
-      <div class="eqblock">\[ r_u = A f_u \in \mathbb{R}^{K}, \qquad \pi_u = \operatorname{rank}(r_u) \]</div>
-      <p>The most similar anchor gets rank \(K\). A ranking stays the same when the similarities rise or fall, even by amounts that differ across pixels and classes, as long as their order is kept. Anchors are selected orthogonally: each new anchor is the pixel whose largest similarity to the anchors already chosen is the smallest, so anchors cover different structures and rarely tie.</p>
-      <div class="eqblock">\[ a_{n+1}=f_{u^\star},\qquad u^\star=\arg\min_u \max_{n'\le n}\langle f_u, a_{n'}\rangle \]</div>
-    </div>
-    <div class="defs" style="margin-top:0">
-      <div class="def"><h4>Target anchors</h4><p>Selected in each target image from the weak view, starting at a random pixel, and shared with the strong view. Both views of a pixel are ranked against the same references, without any label.</p></div>
-      <div class="def"><h4>Source anchors</h4><p>Selected on labeled source pixels, with an equal share of the \(K\) anchors per class so that a mitochondrion is represented as finely as the background. They follow the teacher features by online spherical \(k\)-means.</p></div>
-      <div class="def"><h4>Order-preserving shift</h4><p>A shift is order-preserving if, for every class, the rankings of its pixels against the source anchors follow the same distribution in both domains. Similarities may still change by class-dependent amounts.</p></div>
-      <div class="def"><h4>At inference</h4><p>Anchors, signatures and rankings are discarded. The trained network runs alone, at the cost of its backbone.</p></div>
-    </div>
-  </div>
-
-  <div class="comp-grid">
-    <article class="comp">
-      <p class="k">(b) Within the target · \(\mathcal{L}_{rc}\)</p>
-      <h3>Rank consistency</h3>
-      <p>A ranking is fixed by the signs of its pairwise gaps \(g_{kl}=r_k-r_l\). A pair is <b>trusted</b> when the weak view separates it by more than \(\delta\), the \(q\)-quantile of the weak-view gaps in the batch. The strong view learns the sign of each trusted pair through a sigmoid on the same scale.</p>
-      <div class="eq">\[ \begin{gathered} \mathcal{L}_{rc}=\frac{1}{|\mathcal{T}|}\sum_{i,u}\ \sum_{(k,l)\in\mathcal{T}_{iu}} \ell_{iu,kl} \\ \ell_{iu,kl}=\mathrm{BCE}\Big(\sigma\big(g^{s}_{iu,kl}/\delta\big),\ \mathbf{1}\big[g^{w}_{iu,kl}>0\big]\Big) \end{gathered} \]</div>
-      <p class="swap">Target: <s>a distribution over permutations</s> <em>the sign of each trusted gap</em></p>
-    </article>
-    <article class="comp">
-      <p class="k">(a) Across domains · \(\mathcal{L}_{rm}\)</p>
-      <h3>Rank matching</h3>
-      <p>Each class \(c\) is summarized by its <b>signature</b> \(\mu_c\), the mean ranking of its labeled source pixels against the source anchors. A target pixel takes the class whose signature best matches its ranking, weighted by half the margin \(m\) between the two best matches. No target pseudo-label enters the signatures.</p>
-      <div class="eq">\[ \begin{gathered} \rho^{c}_{iu}=\operatorname{corr}\big(\pi^{w}_{iu},\mu_c\big),\qquad \tilde y_{iu}=\arg\max_c \rho^{c}_{iu} \\ \mathcal{L}_{rm}=\frac{1}{M}\sum_{i}\frac{1}{HW}\sum_{j}\frac{m_{ij}}{2}\,\mathrm{CE}\big(p^{s}_{ij},\tilde y_{ij}\big) \end{gathered} \]</div>
-      <p class="swap">Labels from: <s>prototypes compared by value</s> <em>signatures compared by order</em></p>
-    </article>
-    <article class="comp">
-      <p class="k">(c) Checking the teacher · \(\mathcal{L}_{rs}\)</p>
-      <h3>Rank-stable self-training</h3>
-      <p>The teacher still labels each pixel from its features and spatial context, which matters near class boundaries. Its pseudo-label is weighted by <b>rank stability</b> \(s\), the share of the pixel's trusted pairs that keep their sign from the weak to the strong view, gated at \(s_0\).</p>
-      <div class="eq">\[ \begin{gathered} s_{iu}=\frac{\big|\{(k,l)\in\mathcal{T}_{iu}:\ g^{w}_{iu,kl}\,g^{s}_{iu,kl}>0\}\big|}{|\mathcal{T}_{iu}|} \\ w_{iu}=s_{iu}\,\mathbf{1}[s_{iu}\ge s_0]\,\mathbf{1}\Big[|\mathcal{T}_{iu}|\ge \zeta\tbinom{K}{2}\Big] \end{gathered} \]</div>
-      <p class="swap">Gate: <s>confidence ≥ η</s> <em>rank stability ≥ s₀</em></p>
-    </article>
-  </div>
-
-  <!-- Rank lab -->
-  <div class="lab" id="lab">
-    <div class="lab-head">
-      <h3>Rank lab</h3>
-      <span class="tag">Interactive · illustrative values</span>
-    </div>
-    <p class="sub-note">One pixel, six anchors. Move the sliders to see which pairs are trusted, which flip under strong augmentation, and how the pixel's pseudo-label weight follows. The quantile here is taken over this pixel's 15 pairs; RIDA takes it over the batch.</p>
-    <div class="lab-grid">
-      <div class="lab-pane">
-        <h4>Rank consistency and rank stability</h4>
-        <div class="demo-controls" style="margin-top:8px">
-          <div class="seg" role="group" aria-label="Pixel type">
-            <button type="button" data-lab="stable" aria-pressed="true">Structure-following pixel</button>
-            <button type="button" data-lab="fragile" aria-pressed="false">Appearance-following pixel</button>
-          </div>
-          <label class="slider" for="lab-q"><span>Quantile q</span><input id="lab-q" type="range" min="0.1" max="0.9" step="0.05" value="0.5"><output id="lab-q-out">0.50</output></label>
-          <label class="slider" for="lab-aug"><span>Augmentation</span><input id="lab-aug" type="range" min="0" max="1" step="0.01" value="0.55"><output id="lab-aug-out">0.55</output></label>
-        </div>
-        <svg id="lab-svg" viewBox="0 0 520 300" role="img" aria-label="Weak and strong view similarities of one pixel and its pair matrix"></svg>
-        <div class="legend">
-          <span><i style="background:var(--accent)"></i>trusted, order kept</span>
-          <span><i style="background:var(--flip)"></i>trusted, order flipped</span>
-          <span><i style="background:var(--surface-2);border:1px solid var(--line-2)"></i>not trusted (gap ≤ δ)</span>
-        </div>
-        <div class="readouts">
-          <div class="ro"><b>δ</b><span id="ro-delta">–</span></div>
-          <div class="ro"><b>Trusted pairs</b><span id="ro-trust">–</span></div>
-          <div class="ro"><b>L_rc on pixel</b><span id="ro-lrc">–</span></div>
-          <div class="ro" id="ro-s-box"><b>Stability s</b><span id="ro-s">–</span></div>
-          <div class="ro" id="ro-w-box"><b>Weight w (s₀ = 0.8)</b><span id="ro-w">–</span></div>
-          <div class="ro"><b>Confidence (η = 0.9)</b><span id="ro-conf">–</span></div>
-        </div>
+    <h3>Anchors and rankings</h3>
+    <div class="twin">
+      <div class="prose">
+        <p>A few pixels, the anchors \(A=[a_1;\dots;a_K]\), stand for the main structures of an image. A location \(u\) with unit feature \(f_u\) is described by its similarities and their ranking:</p>
+        <div class="eqn">\[ r_u = A f_u \in \mathbb{R}^{K}, \qquad \pi_u = \operatorname{rank}(r_u) \]</div>
+        <p>A ranking survives any increasing change of the similarities, however large and however different from class to class. Anchors are chosen by farthest-point selection, so they cover different structures and rarely tie:</p>
+        <div class="eqn">\[ a_{n+1}=f_{u^\star},\qquad u^\star=\arg\min_u \max_{n'\le n}\langle f_u, a_{n'}\rangle \]</div>
       </div>
-      <div class="lab-pane">
-        <h4>Rank matching</h4>
-        <div class="demo-controls" style="margin-top:8px">
-          <div class="seg" role="group" aria-label="Target pixel">
-            <button type="button" data-rm="interior" aria-pressed="true">Interior pixel</button>
-            <button type="button" data-rm="boundary" aria-pressed="false">Boundary pixel</button>
-            <button type="button" data-rm="bg" aria-pressed="false">Background pixel</button>
-          </div>
-          <label class="slider" for="rm-gamma"><span>Monotone shift</span><input id="rm-gamma" type="range" min="0.3" max="3" step="0.05" value="1"><output id="rm-gamma-out">γ = 1.00</output></label>
-        </div>
-        <svg id="rm-svg" viewBox="0 0 520 320" role="img" aria-label="Ranking of a target pixel compared with three class signatures"></svg>
-        <div class="readouts">
-          <div class="ro"><b>Label</b><span id="rm-label">–</span></div>
-          <div class="ro"><b>Margin m</b><span id="rm-margin">–</span></div>
-          <div class="ro"><b>Weight m / 2</b><span id="rm-weight">–</span></div>
-        </div>
-        <p class="hint" style="margin-top:10px">The shift raises every similarity of the pixel to the power γ. Its values change, its ranking does not, so the correlations, the label and the weight stay where they are.</p>
+      <div class="notes">
+        <p><b>Target anchors</b> are selected in each target image on the weak view and shared with the strong view, without labels.</p>
+        <p><b>Source anchors</b> are selected on labeled pixels, an equal share per class, and follow the teacher by online spherical \(k\)-means.</p>
+        <p><b>At inference</b> anchors, signatures and rankings are discarded. The network runs alone.</p>
       </div>
     </div>
-  </div>
 
-  <h3 class="sub">Overall objective and training</h3>
-  <div class="cols">
-    <div class="stack read">
-      <div class="eqblock">\[ \mathcal{L}=\mathcal{L}_{sup}+\lambda_{rc}\,\mathcal{L}_{rc}+\lambda_{rm}\,\mathcal{L}_{rm}+\lambda_{rs}\,\mathcal{L}_{rs} \]</div>
-      <p>\(\mathcal{L}_{sup}\) is cross-entropy plus soft Dice on labeled source images. The three components check one another: rank stability reuses the gaps and trusted pairs of rank consistency at almost no extra cost, and rank matching supplies class information that never passes through the model's own target predictions.</p>
-      <p>All main experiments use \(K=32\) anchors, \(s_0=0.8\) and \(\zeta=0.1\). The quantile \(q\), the loss weights and the schedule of each setting are given in its configuration in the code release.</p>
+    <div class="trio">
+      <article>
+        <p class="ix">i &nbsp;·&nbsp; within the target</p>
+        <h3>Rank consistency</h3>
+        <p>A ranking is fixed by the signs of its pairwise gaps \(g_{kl}=r_k-r_l\). Pairs that the weak view separates by more than \(\delta\), the \(q\)-quantile of its gaps in the batch, are trusted; the strong view learns their signs.</p>
+        <div class="eqn">\[ \begin{gathered} \mathcal{L}_{rc}=\frac{1}{|\mathcal{T}|}\sum_{i,u}\ \sum_{(k,l)\in\mathcal{T}_{iu}} \ell_{iu,kl} \\ \ell_{iu,kl}=\mathrm{BCE}\Big(\sigma\big(g^{s}_{iu,kl}/\delta\big),\ \mathbf{1}\big[g^{w}_{iu,kl}>0\big]\Big) \end{gathered} \]</div>
+      </article>
+      <article>
+        <p class="ix">ii &nbsp;·&nbsp; across domains</p>
+        <h3>Rank matching</h3>
+        <p>Each class \(c\) has a signature \(\mu_c\), the mean ranking of its labeled source pixels. A target pixel takes the class whose signature best correlates with its ranking, weighted by half the margin \(m\). No target pseudo-label enters the signatures.</p>
+        <div class="eqn">\[ \begin{gathered} \rho^{c}_{iu}=\operatorname{corr}\big(\pi^{w}_{iu},\mu_c\big),\qquad \tilde y_{iu}=\arg\max_c \rho^{c}_{iu} \\ \mathcal{L}_{rm}=\frac{1}{M}\sum_{i}\frac{1}{HW}\sum_{j}\frac{m_{ij}}{2}\,\mathrm{CE}\big(p^{s}_{ij},\tilde y_{ij}\big) \end{gathered} \]</div>
+      </article>
+      <article>
+        <p class="ix">iii &nbsp;·&nbsp; checking the teacher</p>
+        <h3>Rank-stable self-training</h3>
+        <p>The teacher still labels each pixel from features and context, which matters near boundaries. Its pseudo-label is weighted by rank stability \(s\), the share of trusted pairs that keep their sign from the weak to the strong view, gated at \(s_0\).</p>
+        <div class="eqn">\[ \begin{gathered} s_{iu}=\frac{\big|\{(k,l)\in\mathcal{T}_{iu}:\ g^{w}_{iu,kl}\,g^{s}_{iu,kl}>0\}\big|}{|\mathcal{T}_{iu}|} \\ w_{iu}=s_{iu}\,\mathbf{1}[s_{iu}\ge s_0]\,\mathbf{1}\Big[|\mathcal{T}_{iu}|\ge \zeta\tbinom{K}{2}\Big] \end{gathered} \]</div>
+      </article>
     </div>
-    <div class="algo">
-      <h4>Training procedure</h4>
-      <ol>
-        <li>Warm up the student with \(\mathcal{L}_{sup}\); initialize the teacher from it.</li>
-        <li>Select the source anchors \(A^S\); initialize the signatures \(\{\mu_c\}\).</li>
-        <li>Sample a labeled source batch and an unlabeled target batch.</li>
-        <li>Compute \(\mathcal{L}_{sup}\); update \(A^S\) by online \(k\)-means and \(\{\mu_c\}\) by a moving average.</li>
-        <li>Encode the weak view with the teacher and the strong view with the student.</li>
-        <li class="grp">Rank consistency</li>
-        <li>Select target anchors on the weak view; compute \(\delta\), the trusted pairs \(\mathcal{T}\) and \(\mathcal{L}_{rc}\).</li>
-        <li class="grp">Rank matching</li>
-        <li>Correlate weak-view rankings with \(\{\mu_c\}\); take labels and margins; compute \(\mathcal{L}_{rm}\).</li>
-        <li class="grp">Rank-stable self-training</li>
-        <li>Compute \(s\) and \(w\) from the trusted pairs; compute \(\mathcal{L}_{rs}\).</li>
-        <li>Update the student with \(\mathcal{L}\) and the teacher by EMA; repeat from step 3.</li>
-      </ol>
+
+    <figure class="inset lab" id="lab">
+      <div class="lab-grid">
+        <div class="lab-pane">
+          <h4>Consistency and stability</h4>
+          <div class="ctl">
+            <div class="seg" role="group" aria-label="Pixel type">
+              <button type="button" data-lab="stable" aria-pressed="true">Structure-following pixel</button>
+              <button type="button" data-lab="fragile" aria-pressed="false">Appearance-following pixel</button>
+            </div>
+            <label class="slider" for="lab-q"><span>Quantile q</span><input id="lab-q" type="range" min="0.1" max="0.9" step="0.05" value="0.5"><output id="lab-q-out">0.50</output></label>
+            <label class="slider" for="lab-aug"><span>Augmentation</span><input id="lab-aug" type="range" min="0" max="1" step="0.01" value="0.55"><output id="lab-aug-out">0.55</output></label>
+          </div>
+          <svg id="lab-svg" viewBox="0 0 520 300" role="img" aria-label="Weak and strong view similarities of one pixel and its pair matrix"></svg>
+          <div class="legend">
+            <span><i style="background:var(--accent)"></i>trusted, order kept</span>
+            <span><i style="background:var(--flip)"></i>trusted, order flipped</span>
+            <span><i style="background:var(--paper-2);box-shadow:inset 0 0 0 1px var(--rule-2)"></i>not trusted, gap ≤ δ</span>
+          </div>
+          <div class="readouts">
+            <div class="ro"><b>δ</b><span id="ro-delta">–</span></div>
+            <div class="ro"><b>Trusted pairs</b><span id="ro-trust">–</span></div>
+            <div class="ro"><b>L_rc on pixel</b><span id="ro-lrc">–</span></div>
+            <div class="ro" id="ro-s-box"><b>Stability s</b><span id="ro-s">–</span></div>
+            <div class="ro" id="ro-w-box"><b>Weight w, s₀ = 0.8</b><span id="ro-w">–</span></div>
+            <div class="ro"><b>Confidence, η = 0.9</b><span id="ro-conf">–</span></div>
+          </div>
+        </div>
+        <div class="lab-pane">
+          <h4>Matching</h4>
+          <div class="ctl">
+            <div class="seg" role="group" aria-label="Target pixel">
+              <button type="button" data-rm="interior" aria-pressed="true">Interior pixel</button>
+              <button type="button" data-rm="boundary" aria-pressed="false">Boundary pixel</button>
+              <button type="button" data-rm="bg" aria-pressed="false">Background pixel</button>
+            </div>
+            <label class="slider" for="rm-gamma"><span>Monotone shift</span><input id="rm-gamma" type="range" min="0.3" max="3" step="0.05" value="1"><output id="rm-gamma-out">γ = 1.00</output></label>
+          </div>
+          <svg id="rm-svg" viewBox="0 0 520 320" role="img" aria-label="Ranking of a target pixel compared with three class signatures"></svg>
+          <div class="readouts">
+            <div class="ro"><b>Label</b><span id="rm-label">–</span></div>
+            <div class="ro"><b>Margin m</b><span id="rm-margin">–</span></div>
+            <div class="ro"><b>Weight m / 2</b><span id="rm-weight">–</span></div>
+          </div>
+        </div>
+      </div>
+      <figcaption><span class="fn">Fig. 4</span>Rank lab, schematic values. Left: which pairs of one pixel are trusted, which flip under strong augmentation, and how its weight follows; the quantile is taken over this pixel’s 15 pairs, in RIDA over the batch. Right: raising every similarity to the power γ changes the values, not the ranking, so the label and its weight stay put.</figcaption>
+    </figure>
+
+    <h3>Objective</h3>
+    <div class="twin">
+      <div class="prose">
+        <div class="eqn">\[ \mathcal{L}=\mathcal{L}_{sup}+\lambda_{rc}\,\mathcal{L}_{rc}+\lambda_{rm}\,\mathcal{L}_{rm}+\lambda_{rs}\,\mathcal{L}_{rs} \]</div>
+        <p>\(\mathcal{L}_{sup}\) is cross-entropy plus soft Dice on labeled source images. Rank stability reuses the trusted pairs of rank consistency at almost no extra cost, and rank matching brings class information that never passes through the model’s own target predictions.</p>
+        <details class="algo">
+          <summary>Training procedure</summary>
+          <ol>
+            <li>Warm up the student with \(\mathcal{L}_{sup}\); initialize the teacher from it.</li>
+            <li>Select the source anchors \(A^S\); initialize the signatures \(\{\mu_c\}\).</li>
+            <li>Sample a labeled source batch and an unlabeled target batch.</li>
+            <li>Compute \(\mathcal{L}_{sup}\); update \(A^S\) by online \(k\)-means and \(\{\mu_c\}\) by a moving average.</li>
+            <li>Encode the weak view with the teacher and the strong view with the student.</li>
+            <li>Select target anchors on the weak view; compute \(\delta\), the trusted pairs \(\mathcal{T}\) and \(\mathcal{L}_{rc}\).</li>
+            <li>Correlate weak-view rankings with \(\{\mu_c\}\); take labels and margins; compute \(\mathcal{L}_{rm}\).</li>
+            <li>Compute \(s\) and \(w\) from the trusted pairs; compute \(\mathcal{L}_{rs}\).</li>
+            <li>Update the student with \(\mathcal{L}\) and the teacher by EMA; repeat from step 3.</li>
+          </ol>
+        </details>
+      </div>
+      <div class="notes">
+        <p>All experiments use \(K=32\) anchors, \(s_0=0.8\) and \(\zeta=0.1\). The quantile \(q\), the loss weights and the schedule of each setting are in its released configuration.</p>
+      </div>
     </div>
   </div>
 </section>
 
-<!-- ================= THEORY ================= -->
-<section class="block" id="theory">
-  <div class="sec-head">
-    <p class="eyebrow">Theory</p>
-    <h2>Why rank labels transfer</h2>
-    <p class="lede">The target error of rank matching depends on how the shift reorders the anchors, and not on how far the similarity values move.</p>
-  </div>
-  <div class="theory-grid">
-    <article class="thm">
-      <p class="k">Lemma 1</p>
-      <h3>The margin is a reordering budget</h3>
-      <p>Let \(d(\pi,\pi')\) count the anchor pairs that two rankings order differently, each weighted by how clearly the signature separates its two anchors. If</p>
-      <div class="eq">\[ d(\pi,\pi') \lt \tfrac{1}{2}\,m(\pi) \]</div>
-      <p>then \(\hat y(\pi')=\hat y(\pi)\): a label survives any reordering smaller than half its margin. This is why rank matching weights each label by its margin.</p>
-    </article>
-    <article class="thm wide">
-      <p class="k">Theorem 1</p>
-      <h3>Target error of rank matching</h3>
+<!-- 3 · Theory -->
+<section class="sec page" id="theory">
+  <div class="rail"><span class="no">3</span><span class="nm">Theory</span></div>
+  <div class="body">
+    <h2>Why rank labels transfer.</h2>
+    <p class="prose">The target error of rank matching depends on how the shift reorders the anchors, and not on how far the similarity values move.</p>
+
+    <div class="thm lead">
+      <p class="th"><b>Theorem 1</b> <i>Target error of rank matching.</i></p>
       <p>Let \(W_c\) be the smallest average weighted reordering over all pairings of source and target rankings of class \(c\), \(\varepsilon_S^{\kappa}\) the share of source pixels that rank matching misclassifies or labels with margin at most \(\kappa\), and \(\omega^S,\omega^T\) the class proportions. For every \(\kappa>0\),</p>
-      <div class="eq">\[ \varepsilon_T\;\le\;\underbrace{\varepsilon_S^{\kappa}}_{\text{source error}}\;+\;\underbrace{\frac{2}{\kappa}\sum_c \omega^{T}(c)\,W_c}_{\text{reordering}}\;+\;\underbrace{\mathrm{TV}\big(\omega^{S},\omega^{T}\big)}_{\text{class shift}} \]</div>
-      <p>The bound has the familiar shape of domain adaptation bounds, but its discrepancy counts only reorderings. Under an order-preserving shift \(W_c=0\), and no term measures how far the similarity values move.</p>
-    </article>
-    <article class="thm">
-      <p class="k">Proposition 1</p>
-      <h3>Order agreement bounds the signatures</h3>
-      <p>Define the order agreement of class \(c\), which needs no paired images:</p>
-      <div class="eq">\[ O_c=1-\tfrac{2}{K(K-1)}\textstyle\sum_{k\lt l}\big|\Pr_S(r_k>r_l)-\Pr_T(r_k>r_l)\big| \]</div>
-      <p>Then the source and target signatures of class \(c\) satisfy</p>
-      <div class="eq">\[ \|\mu_c^{S}-\mu_c^{T}\|_1\le K(K-1)\,(1-O_c) \]</div>
-      <p>It can be measured on any transfer task with a few annotated target images, and a high order agreement keeps the signatures that rank matching compares.</p>
-    </article>
-    <article class="thm">
-      <p class="k">Corollary 1</p>
-      <h3>Swapping signatures</h3>
-      <p>Replacing target signatures by source ones changes a label only where its margin is below \(2\max_c e_c\), with \(e_c\) the distance between the normalized signatures:</p>
-      <div class="eq">\[ e_c\le \frac{2\,\|\mu_c^{S}-\mu_c^{T}\|_2}{\|\bar\mu_c^{T}\|_2} \]</div>
-    </article>
-    <article class="thm">
-      <p class="k">Reading</p>
-      <h3>What the bound asks for</h3>
-      <p>Swaps between nearly tied anchors cost almost nothing, because a reordered pair counts only as much as the signature separates it. A larger \(\kappa\) counts more source labels as fragile but lets each label absorb more reordering.</p>
-    </article>
+      <div class="eqn">\[ \varepsilon_T\;\le\;\underbrace{\varepsilon_S^{\kappa}}_{\text{source error}}\;+\;\underbrace{\frac{2}{\kappa}\sum_c \omega^{T}(c)\,W_c}_{\text{reordering}}\;+\;\underbrace{\mathrm{TV}\big(\omega^{S},\omega^{T}\big)}_{\text{class shift}} \]</div>
+      <p>The discrepancy term counts only reorderings. Under an order-preserving shift \(W_c=0\), and no term measures how far the similarity values move.</p>
+    </div>
+
+    <div class="pair">
+      <div class="thm">
+        <p class="th"><b>Lemma 1</b> <i>The margin is a reordering budget.</i></p>
+        <p>Let \(d(\pi,\pi')\) count the anchor pairs that two rankings order differently, each weighted by how clearly the signature separates them. If</p>
+        <div class="eqn">\[ d(\pi,\pi') \lt \tfrac{1}{2}\,m(\pi) \]</div>
+        <p>then \(\hat y(\pi')=\hat y(\pi)\): a label survives any reordering smaller than half its margin, which is why rank matching weights each label by its margin.</p>
+      </div>
+      <div class="thm">
+        <p class="th"><b>Proposition 1</b> <i>Order agreement bounds the signatures.</i></p>
+        <p>With the order agreement of class \(c\), which needs no paired images,</p>
+        <div class="eqn">\[ O_c=1-\tfrac{2}{K(K-1)}\textstyle\sum_{k\lt l}\big|\Pr_S(r_k>r_l)-\Pr_T(r_k>r_l)\big| \]</div>
+        <p>the source and target signatures satisfy \(\|\mu_c^{S}-\mu_c^{T}\|_1\le K(K-1)\,(1-O_c)\). A few annotated target images suffice to measure it.</p>
+      </div>
+    </div>
   </div>
 </section>
 
-<!-- ================= RESULTS ================= -->
-<section class="block" id="results">
-  <div class="sec-head">
-    <p class="eyebrow">Results</p>
-    <h2>Best in all 24 settings</h2>
-    <p class="lede">Every competing method keeps its own losses, modules and hyperparameters and is reproduced on the same three backbones as RIDA. Cross-modality tasks report 3-D Dice and ASSD; EM tasks report F1 and MCC (mAP and IoU in the per-class view).</p>
-  </div>
-
-  <div class="chart-card">
-    <div class="chart-top">
-      <div>
-        <h4>RIDA against the strongest competitor of each setting</h4>
-        <p class="sub">Dice (%) for cross-modality tasks, F1 (%) for EM tasks. Hover a row for details.</p>
+<!-- 4 · Results -->
+<section class="sec page" id="results">
+  <div class="rail"><span class="no">4</span><span class="nm">Results</span></div>
+  <div class="body">
+    <h2>Best in all 24 settings.</h2>
+    <div class="twin">
+      <div class="prose">
+        <p>Twelve recent methods are reproduced with their own losses, modules and hyperparameters on the same three backbones as RIDA: a U-Net trained from scratch, DINOv3 ViT-L/16, and MedSAM ViT-B with LoRA adapters. Every method is evaluated at its best-Dice (cross-modality) or best-F1 (EM) checkpoint, following DA-ISC and R4MITO, with seed 42; the oracle uses target labels on the same backbone.</p>
       </div>
+      <table class="bench">
+        <tbody>
+          <tr><th>Abdomen</th><td>CHAOS MR ⇄ BTCV CT<br><span>liver, kidneys, spleen</span></td></tr>
+          <tr><th>MM-WHS</th><td>MR ⇄ CT<br><span>AA, LAC, LVC, MYO</span></td></tr>
+          <tr><th>VNC III → Lucchi</th><td>ssTEM → FIB-SEM<br><span>mitochondria, two subsets</span></td></tr>
+          <tr><th>MitoEM</th><td>rat ⇄ human cortex<br><span>mitochondria</span></td></tr>
+        </tbody>
+      </table>
     </div>
-    <div class="chart" id="dumbbell"></div>
-    <div class="legend">
-      <span><i class="dot" style="background:var(--gray-2)"></i>Strongest competitor (seed 42)</span>
-      <span><i class="dot" style="background:var(--accent)"></i>RIDA (seed 42)</span>
-      <span><i class="line" style="background:var(--accent);height:6px;opacity:.35"></i>RIDA, mean ± 1 sd over 3 seeds</span>
-    </div>
-    <p class="tbl-foot">Margins range from 0.27 to 10.31 points. Averaged over backbones, the margin is largest on MM-WHS CT→MR (5.86 Dice) and smallest on MitoEM R→H (0.52 F1). Over three seeds, the RIDA mean minus one standard deviation stays above the strongest competitor in all 24 settings.</p>
-  </div>
 
-  <div class="chart-card">
-    <div class="chart-top">
-      <div>
-        <h4>Benchmark explorer</h4>
-        <p class="sub" id="ex-sub">All 13 methods on one setting.</p>
+    <figure class="wide">
+      <div class="chart" id="dumbbell"></div>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--gray-2)"></i>Strongest competitor</span>
+        <span><i class="dot" style="background:var(--accent)"></i>RIDA</span>
+        <span><i class="band"></i>RIDA, mean ± 1 sd over 3 seeds</span>
       </div>
+      <figcaption><span class="fn">Fig. 5</span>RIDA against the strongest competitor of each setting, seed 42: Dice for cross-modality tasks, F1 for EM. Margins run from 0.27 to 10.31 points, and RIDA’s three-seed mean minus one standard deviation stays above the competitor in all 24 settings.</figcaption>
+    </figure>
+
+    <figure class="wide">
       <div class="controls">
         <div class="seg" role="group" aria-label="Benchmark" id="ex-bench">
           <button type="button" data-v="abdomen" aria-pressed="false">Abdomen</button>
@@ -400,170 +301,130 @@
           <button type="button" data-v="lucchi" aria-pressed="false">VNC III→Lucchi</button>
           <button type="button" data-v="mitoem" aria-pressed="false">MitoEM</button>
         </div>
+        <div class="seg" role="group" aria-label="Direction" id="ex-dir"></div>
+        <div class="seg" role="group" aria-label="Backbone" id="ex-bb">
+          <button type="button" data-v="unet" aria-pressed="false">U-Net</button>
+          <button type="button" data-v="dinov3" aria-pressed="true">DINOv3</button>
+          <button type="button" data-v="medsam" aria-pressed="false">MedSAM</button>
+        </div>
+        <div class="seg" role="group" aria-label="Metric" id="ex-met"></div>
+        <div class="seg end" role="group" aria-label="View" id="ex-view">
+          <button type="button" data-v="chart" aria-pressed="true">Chart</button>
+          <button type="button" data-v="table" aria-pressed="false">Table</button>
+        </div>
       </div>
-    </div>
-    <div class="controls" style="margin-bottom:12px">
-      <div class="seg" role="group" aria-label="Direction" id="ex-dir"></div>
-      <div class="seg" role="group" aria-label="Backbone" id="ex-bb">
-        <button type="button" data-v="unet" aria-pressed="false">U-Net</button>
-        <button type="button" data-v="dinov3" aria-pressed="true">DINOv3</button>
-        <button type="button" data-v="medsam" aria-pressed="false">MedSAM</button>
+      <p class="chart-sub" id="ex-sub"></p>
+      <div class="chart" id="explorer"></div>
+      <div id="explorer-table" hidden></div>
+      <div class="legend" id="ex-legend">
+        <span><i class="dot" style="background:var(--accent)"></i>RIDA</span>
+        <span><i class="dot" style="background:var(--gray-2)"></i>Strongest competitor</span>
+        <span><i class="dot" style="background:var(--gray-1)"></i>Other competitors</span>
+        <span><i class="line"></i>Oracle</span>
+        <span id="ex-leg-src"><i class="line dash"></i>Source-only</span>
       </div>
-      <div class="seg" role="group" aria-label="Metric" id="ex-met"></div>
-      <div class="seg" role="group" aria-label="View" id="ex-view">
-        <button type="button" data-v="chart" aria-pressed="true">Chart</button>
-        <button type="button" data-v="table" aria-pressed="false">Full table</button>
-      </div>
-    </div>
-    <div class="chart" id="explorer"></div>
-    <div id="explorer-table" hidden></div>
-    <div class="legend" id="ex-legend">
-      <span><i style="background:var(--accent)"></i>RIDA</span>
-      <span><i style="background:var(--gray-2)"></i>Strongest competitor</span>
-      <span><i style="background:var(--gray-1)"></i>Other competitors</span>
-      <span><i class="line" style="background:var(--ink-2)"></i>Oracle (trained on target labels)</span>
-      <span id="ex-leg-src"><i class="line" style="background:var(--amber)"></i>Source-only</span>
-    </div>
-  </div>
-
-  <h3 class="sub">Per-class results</h3>
-  <p class="sub-note">The gains come from most classes. On the cross-modality tasks RIDA has the best or second-best Dice on 39 of the 48 class-level entries; its largest gains are on the left atrium blood cavity of MM-WHS CT→MR, where it exceeds the best competing result by more than 13 Dice with every backbone. Cell shading follows the value within each column; bold is best and underline second best, oracle excluded.</p>
-  <div class="chart-card" style="margin-top:14px">
-    <div class="controls" style="margin-bottom:12px">
-      <div class="seg" role="group" aria-label="Task" id="pc-task">
-        <button type="button" data-v="abdomen_mr2ct" aria-pressed="false">Abdomen MR→CT</button>
-        <button type="button" data-v="abdomen_ct2mr" aria-pressed="false">Abdomen CT→MR</button>
-        <button type="button" data-v="mmwhs_mr2ct" aria-pressed="false">MM-WHS MR→CT</button>
-        <button type="button" data-v="mmwhs_ct2mr" aria-pressed="true">MM-WHS CT→MR</button>
-        <button type="button" data-v="lucchi" aria-pressed="false">VNC III→Lucchi</button>
-        <button type="button" data-v="mitoem" aria-pressed="false">MitoEM</button>
-      </div>
-      <div class="seg" role="group" aria-label="Backbone" id="pc-bb">
-        <button type="button" data-v="unet" aria-pressed="true">U-Net</button>
-        <button type="button" data-v="dinov3" aria-pressed="false">DINOv3</button>
-        <button type="button" data-v="medsam" aria-pressed="false">MedSAM</button>
-      </div>
-    </div>
-    <div id="perclass"></div>
-  </div>
-
-  <h3 class="sub">A natural-image reference: GTA5 → Cityscapes</h3>
-  <div class="chart-card">
-    <div class="chart-top">
-      <div>
-        <h4>Per-class IoU with a MiT-B5 encoder and the DAFormer decoder</h4>
-        <p class="sub">RIDA 69.87 mIoU, MIC 69.54, DAFormer 68.31, source-only 42.11, oracle 77.21. RIDA is the best on 11 of 19 classes.</p>
-      </div>
-    </div>
-    <div class="chart" id="gta"></div>
-    <div class="legend">
-      <span><i class="dot" style="background:var(--gray-1)"></i>DAFormer</span>
-      <span><i class="dot" style="background:var(--gray-2)"></i>MIC</span>
-      <span><i class="dot" style="background:var(--accent)"></i>RIDA</span>
-      <span><i class="line" style="background:var(--ink-2)"></i>Oracle</span>
-    </div>
-    <p class="tbl-foot">RIDA was designed for biomedical shifts, where the imaged structures stay the same. On a synthetic-to-real street-scene shift, which also changes the scene content, it stays on par with the strongest natural-image method.</p>
-  </div>
-</section>
-
-<!-- ================= ANALYSIS ================= -->
-<section class="block" id="analysis">
-  <div class="sec-head">
-    <p class="eyebrow">Analysis</p>
-    <h2>What the model sees</h2>
-  </div>
-
-  <h3 class="sub" style="margin-top:0">Predictions of the released checkpoints</h3>
-  <div class="controls">
-    <div class="seg" role="group" aria-label="Image family" id="qual-tab">
-      <button type="button" data-v="med" aria-pressed="true">Cross-modality</button>
-      <button type="button" data-v="em" aria-pressed="false">Mitochondria (EM)</button>
-    </div>
-  </div>
-  <div class="legend" id="qual-legend"></div>
-  <div class="qual-grid" id="qual"></div>
-
-  <h3 class="sub">Anchors</h3>
-  <div class="cols">
-    <figure>
-      <div class="plate"><img src="static/img/fig5.webp" width="1600" height="1311" alt="Similarity maps of three source anchors of mitochondria and myocardium" loading="lazy"></div>
-      <figcaption><b>Source anchors of one class.</b> Similarity maps of three source anchors (stars) of mitochondria (top two rows) and the myocardium (bottom two rows), and their overlay. Orthogonal selection represents a class by complementary parts, such as different segments of the myocardial wall.</figcaption>
+      <figcaption><span class="fn">Fig. 6</span>All 13 methods on one setting, grouped by the image domain each was designed for.</figcaption>
     </figure>
-    <figure>
-      <div class="plate"><img src="static/img/fig6.webp" width="1600" height="1307" alt="Similarity maps of three target anchors selected without labels in EM and MM-WHS images" loading="lazy"></div>
-      <figcaption><b>Target anchors, selected without labels.</b> Similarity maps of three target anchors (stars) in EM (top two rows) and MM-WHS (bottom two rows), and their overlay. They separate the background from different structures of the image.</figcaption>
+
+    <figure class="wide">
+      <div class="controls">
+        <div class="seg" role="group" aria-label="Task" id="pc-task">
+          <button type="button" data-v="abdomen_mr2ct" aria-pressed="false">Abdomen MR→CT</button>
+          <button type="button" data-v="abdomen_ct2mr" aria-pressed="false">Abdomen CT→MR</button>
+          <button type="button" data-v="mmwhs_mr2ct" aria-pressed="false">MM-WHS MR→CT</button>
+          <button type="button" data-v="mmwhs_ct2mr" aria-pressed="true">MM-WHS CT→MR</button>
+          <button type="button" data-v="lucchi" aria-pressed="false">VNC III→Lucchi</button>
+          <button type="button" data-v="mitoem" aria-pressed="false">MitoEM</button>
+        </div>
+        <div class="seg" role="group" aria-label="Backbone" id="pc-bb">
+          <button type="button" data-v="unet" aria-pressed="true">U-Net</button>
+          <button type="button" data-v="dinov3" aria-pressed="false">DINOv3</button>
+          <button type="button" data-v="medsam" aria-pressed="false">MedSAM</button>
+        </div>
+      </div>
+      <div id="perclass"></div>
+      <figcaption><span class="fn">Table 1</span>Per-class results. Shading follows each column; bold is best and underline second best, oracle excluded. On the cross-modality tasks RIDA is best or second best on 39 of the 48 class entries, and on the left atrium cavity of MM-WHS CT→MR it leads by more than 13 Dice with every backbone.</figcaption>
+    </figure>
+
+    <figure class="wide">
+      <div class="chart" id="gta"></div>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--gray-1)"></i>DAFormer</span>
+        <span><i class="dot" style="background:var(--gray-2)"></i>MIC</span>
+        <span><i class="dot" style="background:var(--accent)"></i>RIDA</span>
+        <span><i class="line tick"></i>Oracle</span>
+      </div>
+      <figcaption><span class="fn">Fig. 7</span>A natural-image reference: GTA5 → Cityscapes with MiT-B5 and the DAFormer decoder, per-class IoU. RIDA 69.87 mIoU, MIC 69.54, DAFormer 68.31; source-only 42.11, oracle 77.21. Designed for biomedical shifts, RIDA stays on par here and is best on 11 of 19 classes.</figcaption>
     </figure>
   </div>
+</section>
 
-  <h3 class="sub">Training cost</h3>
-  <div class="cols wide-left">
-    <div id="cost"></div>
-    <div class="stack read" style="font-size:.98rem">
-      <p>Training time per iteration and peak GPU memory on MM-WHS MR→CT. RIDA adds a moderate overhead over confidence-thresholded self-training, comparable to other recent methods.</p>
-      <p>At inference the anchors, signatures and rankings are discarded, so a RIDA model costs exactly as much as its backbone.</p>
+<!-- 5 · Analysis -->
+<section class="sec page" id="analysis">
+  <div class="rail"><span class="no">5</span><span class="nm">Analysis</span></div>
+  <div class="body">
+    <h2>What the model sees.</h2>
+
+    <figure class="wide">
+      <div class="controls">
+        <div class="seg" role="group" aria-label="Image family" id="qual-tab">
+          <button type="button" data-v="med" aria-pressed="true">Cross-modality</button>
+          <button type="button" data-v="em" aria-pressed="false">Mitochondria, EM</button>
+        </div>
+      </div>
+      <div class="sheet" id="qual"></div>
+      <div class="legend" id="qual-legend"></div>
+      <figcaption><span class="fn">Fig. 8</span>Predictions of the released checkpoints on target images, with errors marked on the RIDA column.</figcaption>
+    </figure>
+
+    <div class="pair figs">
+      <figure>
+        <div class="plate"><img src="static/img/fig5.webp" width="1600" height="1311" alt="Similarity maps of three source anchors of mitochondria and myocardium" loading="lazy"></div>
+        <figcaption><span class="fn">Fig. 9</span>Source anchors of one class: similarity maps of three anchors (stars) of mitochondria and of the myocardium, and their overlay. Farthest-point selection splits a class into complementary parts, such as segments of the myocardial wall.</figcaption>
+      </figure>
+      <figure>
+        <div class="plate"><img src="static/img/fig6.webp" width="1600" height="1307" alt="Similarity maps of three target anchors selected without labels in EM and MM-WHS images" loading="lazy"></div>
+        <figcaption><span class="fn">Fig. 10</span>Target anchors, selected without labels, in EM and MM-WHS images. They separate the background from the different structures of the image.</figcaption>
+      </figure>
     </div>
+
+    <figure class="wide">
+      <div id="cost"></div>
+      <figcaption><span class="fn">Table 2</span>Training cost on MM-WHS MR→CT: seconds per iteration and peak GPU memory. RIDA adds a moderate overhead over confidence-thresholded self-training, in line with other recent methods; at inference it costs exactly as much as its backbone.</figcaption>
+    </figure>
   </div>
 </section>
 
-<!-- ================= SETUP ================= -->
-<section class="block" id="setup">
-  <div class="sec-head">
-    <p class="eyebrow">Protocol</p>
-    <h2>How the numbers were obtained</h2>
-  </div>
-  <div class="defs" style="grid-template-columns:repeat(3,minmax(0,1fr))">
-    <div class="def"><h4>Backbones</h4><p>U-Net with 32 base channels, trained from scratch. DINOv3 ViT-L/16 (LVD-1689M) with features of blocks 5, 11, 17 and 23 fused by a light convolutional decoder and its last four blocks fine-tuned. MedSAM ViT-B at 512 × 512 with LoRA adapters and the same decoder.</p></div>
-    <div class="def"><h4>Evaluation</h4><p>Following DA-ISC and R4MITO, every method is evaluated at the checkpoint with the best Dice (cross-modality) or F1 (EM) during training, and all metrics are computed at that checkpoint. All methods use seed 42; RIDA is also reported over three seeds. The oracle uses target labels with the same backbone.</p></div>
-    <div class="def"><h4>Competitors</h4><p>Natural-image UDA: DAFormer, MIC, ECOCSeg. Medical UDA: DDS-UDA, DDFP, AP, CAUDA-MI, WFE-LPFN, SHAPE. Biological UDA: DA-ISC, CAFA, R4MITO. Training uses Adam on eight NVIDIA RTX A6000 GPUs.</p></div>
+<!-- 6 · Code -->
+<section class="sec page" id="code">
+  <div class="rail"><span class="no">6</span><span class="nm">Code</span></div>
+  <div class="body">
+    <h2>Reproduce any setting.</h2>
+    <p class="prose">Each of the 24 settings is one configuration, <code>configs/rida/&lt;backbone&gt;/&lt;benchmark&gt;_&lt;direction&gt;.yaml</code>, trained end to end by one command. One checkpoint per setting is on <a href="https://huggingface.co/jiajianihao/RIDA" target="_blank" rel="noopener">Hugging Face</a>.</p>
+    <div class="code"><button class="copy" type="button">Copy</button><pre><span class="c"># install</span>
+conda create -n rida python=3.11 -y &amp;&amp; conda activate rida
+pip install torch==2.5.1 torchvision==0.20.1 --index-url https://download.pytorch.org/whl/cu124
+pip install -r requirements.txt
+
+<span class="c"># checkpoints  →  checkpoints/rida/&lt;benchmark&gt;/&lt;backbone&gt;_&lt;direction&gt;.pth</span>
+huggingface-cli download jiajianihao/RIDA --local-dir checkpoints --include "rida/*"
+bash scripts/data/check.sh                       <span class="c"># verify the data layout</span>
+
+<span class="c"># train one setting, or all 24</span>
+python tools/train.py configs/rida/unet/cardiac_ct2mr.yaml
+bash scripts/reproduce/all.sh
+
+<span class="c"># evaluate</span>
+python tools/test.py configs/rida/unet/cardiac_ct2mr.yaml checkpoints/rida/cardiac/unet_ct2mr.pth
+bash scripts/test/all.sh                         <span class="c"># every released checkpoint</span></pre></div>
   </div>
 </section>
 
-<!-- ================= CODE ================= -->
-<section class="block" id="code">
-  <div class="sec-head">
-    <p class="eyebrow">Code and checkpoints</p>
-    <h2>Reproduce any of the 24 settings</h2>
-    <p class="lede">Each setting is one configuration, <span class="mono" style="font-size:.9em">configs/rida/&lt;backbone&gt;/&lt;benchmark&gt;_&lt;direction&gt;.yaml</span>, trained end to end with one command. One RIDA checkpoint per setting is on <a href="https://huggingface.co/jiajianihao/RIDA" target="_blank" rel="noopener">Hugging Face</a>.</p>
-  </div>
-  <div class="code-grid">
-    <div>
-      <h4>Install</h4>
-      <div class="code"><button class="copy" type="button">Copy</button><pre>conda create -n rida python=3.11 -y
-conda activate rida
-pip install torch==2.5.1 torchvision==0.20.1 \
-    --index-url https://download.pytorch.org/whl/cu124
-pip install -r requirements.txt</pre></div>
-    </div>
-    <div>
-      <h4>Download the checkpoints</h4>
-      <div class="code"><button class="copy" type="button">Copy</button><pre>huggingface-cli download jiajianihao/RIDA \
-    --local-dir checkpoints --include "rida/*"
-<span class="c"># checkpoints/rida/&lt;benchmark&gt;/&lt;backbone&gt;_&lt;direction&gt;.pth</span>
-bash scripts/data/check.sh   <span class="c"># verify the data layout</span></pre></div>
-    </div>
-    <div>
-      <h4>Train</h4>
-      <div class="code"><button class="copy" type="button">Copy</button><pre>python tools/train.py configs/rida/unet/cardiac_ct2mr.yaml
-python tools/train.py configs/rida/dinov3/mitoem_h2r.yaml \
-    --work-dir work_dirs/mitoem/dinov3_h2r
-bash scripts/reproduce/all.sh   <span class="c"># all 24 settings</span></pre></div>
-    </div>
-    <div>
-      <h4>Evaluate</h4>
-      <div class="code"><button class="copy" type="button">Copy</button><pre>python tools/test.py configs/rida/unet/cardiac_ct2mr.yaml \
-    checkpoints/rida/cardiac/unet_ct2mr.pth
-bash scripts/test/all.sh        <span class="c"># every released checkpoint</span></pre></div>
-    </div>
-  </div>
-</section>
-
-<!-- ================= CITATION ================= -->
-<section class="block" id="citation">
-  <div class="sec-head">
-    <p class="eyebrow">Citation</p>
-    <h2>BibTeX</h2>
-  </div>
-  <div class="code"><button class="copy" type="button">Copy</button><pre>@misc{chen2026rida,
+<!-- 7 · Citation -->
+<section class="sec page" id="citation">
+  <div class="rail"><span class="no">7</span><span class="nm">Citation</span></div>
+  <div class="body">
+    <div class="code"><button class="copy" type="button">Copy</button><pre>@misc{chen2026rida,
   title        = {A Universal Rank-Invariant Domain Adaptation Method for
                   Biomedical Image Segmentation},
   author       = {Chen, Yujia and Sun, Rui and Wang, Yuan and Zhang, Tianzhu
@@ -571,17 +432,15 @@ bash scripts/test/all.sh        <span class="c"># every released checkpoint</spa
   year         = {2026},
   howpublished = {\url{https://github.com/jj-ccc/RIDA}}
 }</pre></div>
-  <p class="sub-note" style="margin-top:18px">RIDA builds on <a href="https://github.com/facebookresearch/dinov3" target="_blank" rel="noopener">DINOv3</a>, <a href="https://github.com/facebookresearch/segment-anything" target="_blank" rel="noopener">Segment Anything</a>, <a href="https://github.com/bowang-lab/MedSAM" target="_blank" rel="noopener">MedSAM</a>, <a href="https://github.com/lhoyer/DAFormer" target="_blank" rel="noopener">DAFormer</a> and <a href="https://github.com/weih527/DA-ISC" target="_blank" rel="noopener">DA-ISC</a>. We thank the authors of BTCV, CHAOS, MM-WHS, VNC III, Lucchi and MitoEM for releasing their data.</p>
+    <p class="thanks">RIDA builds on <a href="https://github.com/facebookresearch/dinov3" target="_blank" rel="noopener">DINOv3</a>, <a href="https://github.com/facebookresearch/segment-anything" target="_blank" rel="noopener">Segment Anything</a>, <a href="https://github.com/bowang-lab/MedSAM" target="_blank" rel="noopener">MedSAM</a>, <a href="https://github.com/lhoyer/DAFormer" target="_blank" rel="noopener">DAFormer</a> and <a href="https://github.com/weih527/DA-ISC" target="_blank" rel="noopener">DA-ISC</a>. We thank the authors of BTCV, CHAOS, MM-WHS, VNC III, Lucchi and MitoEM for releasing their data.</p>
+  </div>
 </section>
 
-</div>
 </main>
 
-<footer>
-  <div class="sheet">
-    <span>RIDA · University of Science and Technology of China</span>
-    <span>Code released under the MIT License</span>
-  </div>
+<footer class="page foot">
+  <span>RIDA &nbsp;·&nbsp; University of Science and Technology of China</span>
+  <span>Code under the MIT License &nbsp;·&nbsp; Set in Newsreader and IBM Plex</span>
 </footer>
 
 <div class="tip" id="tip" role="status" aria-live="polite"></div>
