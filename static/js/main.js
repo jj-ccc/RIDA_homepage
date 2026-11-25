@@ -268,56 +268,63 @@
   }
   function drawDumbbell() {
     const host = $("#dumbbell");
-    const items = [];
+    host.innerHTML = "";
+    const seedOf = {};
     let ti = 0;
-    Object.entries(BENCH).forEach(([bk, b]) => {
-      const M = D.main[bk];
-      M.dirs.forEach((dk) => {
-        const seeds = D.seeds[ti++];
-        items.push({ head: `${b.name} ${b.dirs[dk]}`, metric: M.metrics[0] });
-        BB.forEach(([bb, bbn], j) => {
-          const r = M.rows.rida[bb][dk][0];
-          const c = strongest(M.rows, bb, dk, 0, M.metrics[0]);
-          items.push({ bench: b.name, dir: b.dirs[dk], bb: bbn, r, c, seed: seeds.bb[j], metric: M.metrics[0] });
+    Object.entries(BENCH).forEach(([bk]) => D.main[bk].dirs.forEach((dk) => (seedOf[bk + dk] = D.seeds[ti++])));
+    // two panels: cross-modality (Dice) and electron microscopy (F1), each on its own axis
+    [["abdomen", "mmwhs"], ["lucchi", "mitoem"]].forEach((group) => {
+      const items = [];
+      group.forEach((bk) => {
+        const b = BENCH[bk], M = D.main[bk];
+        M.dirs.forEach((dk) => {
+          const seeds = seedOf[bk + dk];
+          items.push({ head: `${b.name} ${b.dirs[dk]}`, metric: M.metrics[0] });
+          BB.forEach(([bb, bbn], j) => {
+            const r = M.rows.rida[bb][dk][0];
+            const c = strongest(M.rows, bb, dk, 0, M.metrics[0]);
+            items.push({ bench: b.name, dir: b.dirs[dk], bb: bbn, r, c, seed: seeds.bb[j], metric: M.metrics[0] });
+          });
         });
       });
-    });
-    const W = 900, L = 200, R = 80, rowH = 22, headH = 30;
-    let H = 26;
-    items.forEach((it) => (H += it.head ? headH : rowH));
-    H += 8;
-    const lo = 55, hi = 95;
-    const x = (v) => L + (v - lo) / (hi - lo) * (W - L - R);
-    const svg = svgRoot(W, H, "Dumbbell chart of RIDA and the strongest competitor in 24 settings");
-    for (let v = lo; v <= hi; v += 5) {
-      el("line", { x1: x(v), x2: x(v), y1: 18, y2: H - 6, class: "grid-line" }, svg);
-      el("text", { x: x(v), y: 12, "text-anchor": "middle", style: "font-size:11px;fill:var(--muted)", text: v }, svg);
-    }
-    el("text", { x: W - R + 16, y: 12, style: "font-size:11px;fill:var(--muted)", text: "Δ" }, svg);
-    let yy = 26;
-    items.forEach((it) => {
-      if (it.head) {
-        const ht = el("text", { x: 0, y: yy + 20, style: "font-family:var(--f-serif);font-size:15px;fill:var(--ink)", text: it.head + "  " }, svg);
-        el("tspan", { style: "font-family:var(--f-sans);font-size:11px;fill:var(--muted)", text: it.metric }, ht);
-        yy += headH;
-        return;
+      const vals = items.filter((it) => !it.head).flatMap((it) => [it.r, it.c.v, it.seed.mean - it.seed.std, it.seed.mean + it.seed.std]);
+      const lo = Math.floor((Math.min(...vals) - 1) / 5) * 5, hi = Math.ceil((Math.max(...vals) + 0.5) / 5) * 5;
+      const W = 460, L = 62, R = 50, rowH = 21, headH = 27;
+      let H = 24;
+      items.forEach((it) => (H += it.head ? headH : rowH));
+      H += 6;
+      const x = (v) => L + (v - lo) / (hi - lo) * (W - L - R);
+      const svg = svgRoot(W, H, `RIDA and the strongest competitor, ${group.map((k) => BENCH[k].name).join(" and ")}`);
+      const step = hi - lo > 30 ? 10 : 5;
+      for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) {
+        el("line", { x1: x(v), x2: x(v), y1: 18, y2: H - 4, class: "grid-line" }, svg);
+        el("text", { x: x(v), y: 11, "text-anchor": "middle", style: "font-size:10.5px;fill:var(--muted)", text: v }, svg);
       }
-      const cy = yy + rowH / 2;
-      const g = el("g", {}, svg);
-      const bg = el("rect", { x: 0, y: yy, width: W, height: rowH, style: "fill:transparent" }, g);
-      g.addEventListener("pointerenter", () => (bg.style.fill = "var(--paper-2)"));
-      g.addEventListener("pointerleave", () => (bg.style.fill = "transparent"));
-      el("text", { x: 14, y: cy + 4, style: "font-size:11.5px;fill:var(--ink-2)", text: it.bb }, g);
-      el("line", { x1: x(it.c.v), x2: x(it.r), y1: cy, y2: cy, style: "stroke:var(--gray-1);stroke-width:1.5" }, g);
-      el("rect", { x: x(it.seed.mean - it.seed.std), y: cy - 4, width: Math.max(2, x(it.seed.mean + it.seed.std) - x(it.seed.mean - it.seed.std)), height: 8, rx: 4, style: "fill:var(--accent);opacity:.28" }, g);
-      el("circle", { cx: x(it.c.v), cy, r: 5, style: "fill:var(--gray-2);stroke:var(--surface);stroke-width:2" }, g);
-      el("circle", { cx: x(it.r), cy, r: 5.5, style: "fill:var(--accent);stroke:var(--surface);stroke-width:2" }, g);
-      el("text", { x: W - R + 16, y: cy + 4, style: "font-size:11.5px;font-weight:500;fill:var(--ink);font-variant-numeric:tabular-nums", text: sgn(it.r - it.c.v) }, g);
-      hover(g, `<b>${it.bench} ${it.dir} · ${it.bb}</b><br>RIDA <span class="tv">${fmt(it.r)}</span> · ${MNAME[it.c.k]} <span class="tv">${fmt(it.c.v)}</span><br>Δ <span class="tv">${sgn(it.r - it.c.v)}</span> ${it.metric}<br>RIDA over 3 seeds <span class="tv">${fmt(it.seed.mean)} ± ${fmt(it.seed.std)}</span>`);
-      yy += rowH;
+      el("text", { x: W, y: 11, "text-anchor": "end", style: "font-size:10.5px;fill:var(--muted)", text: "Δ" }, svg);
+      let yy = 22;
+      items.forEach((it) => {
+        if (it.head) {
+          const ht = el("text", { x: 0, y: yy + 19, style: "font-family:var(--f-serif);font-size:14.5px;fill:var(--ink)", text: it.head + "  " }, svg);
+          el("tspan", { style: "font-family:var(--f-sans);font-size:10.5px;fill:var(--muted)", text: it.metric }, ht);
+          yy += headH;
+          return;
+        }
+        const cy = yy + rowH / 2;
+        const g = el("g", {}, svg);
+        const bg = el("rect", { x: 0, y: yy, width: W, height: rowH, style: "fill:transparent" }, g);
+        g.addEventListener("pointerenter", () => (bg.style.fill = "var(--paper-2)"));
+        g.addEventListener("pointerleave", () => (bg.style.fill = "transparent"));
+        el("text", { x: 10, y: cy + 4, style: "font-size:11px;fill:var(--ink-2)", text: it.bb }, g);
+        el("line", { x1: x(it.c.v), x2: x(it.r), y1: cy, y2: cy, style: "stroke:var(--gray-1);stroke-width:1.5" }, g);
+        el("rect", { x: x(it.seed.mean - it.seed.std), y: cy - 4, width: Math.max(2, x(it.seed.mean + it.seed.std) - x(it.seed.mean - it.seed.std)), height: 8, rx: 4, style: "fill:var(--accent);opacity:.28" }, g);
+        el("circle", { cx: x(it.c.v), cy, r: 4.5, style: "fill:var(--gray-2);stroke:var(--surface);stroke-width:2" }, g);
+        el("circle", { cx: x(it.r), cy, r: 5, style: "fill:var(--accent);stroke:var(--surface);stroke-width:2" }, g);
+        el("text", { x: W, y: cy + 4, "text-anchor": "end", style: "font-size:11px;font-weight:500;fill:var(--ink);font-variant-numeric:tabular-nums", text: sgn(it.r - it.c.v) }, g);
+        hover(g, `<b>${it.bench} ${it.dir} · ${it.bb}</b><br>RIDA <span class="tv">${fmt(it.r)}</span> · ${MNAME[it.c.k]} <span class="tv">${fmt(it.c.v)}</span><br>Δ <span class="tv">${sgn(it.r - it.c.v)}</span> ${it.metric}<br>RIDA over 3 seeds <span class="tv">${fmt(it.seed.mean)} ± ${fmt(it.seed.std)}</span>`);
+        yy += rowH;
+      });
+      host.appendChild(svg);
     });
-    host.innerHTML = "";
-    host.appendChild(svg);
   }
   drawDumbbell();
 
@@ -501,7 +508,7 @@
   /* ================= GTA5 -> Cityscapes ================= */
   (function drawGTA() {
     const G = D.gta;
-    const W = 900, L = 120, R = 20, rowH = 24, T = 26;
+    const W = 900, L = 120, R = 20, rowH = 22, T = 26;
     const H = T + G.rows.length * rowH + 10;
     const lo = 40, hi = 100;
     const x = (v) => L + (v - lo) / (hi - lo) * (W - L - R);
@@ -548,12 +555,14 @@
   };
   function drawQual(kind) {
     $("#qual-legend").innerHTML = QLEG[kind].map(([c, n]) => `<span><i style="background:${c}"></i>${n}</span>`).join("");
-    let h = '<span class="sh blank"></span><span class="sh">Target image</span><span class="sh">RIDA</span><span class="sh">Ground truth</span>';
+    const head = '<div class="trip sh"><span>Target image</span><span>RIDA</span><span>Ground truth</span></div>';
+    let h = head + head;
     QUAL[kind].forEach(([id, task, bb]) => {
-      h += `<p class="rl">${task}<span>${bb}</span></p>
+      h += `<div class="ex"><div class="trip">
         <img src="static/img/qual_${id}_image.webp" alt="${task} target image" loading="lazy" width="472" height="472">
         <img src="static/img/qual_${id}_rida.webp" alt="RIDA prediction with errors marked, ${task}, ${bb}" loading="lazy" width="472" height="472">
-        <img src="static/img/qual_${id}_gt.webp" alt="Ground truth, ${task}" loading="lazy" width="472" height="472">`;
+        <img src="static/img/qual_${id}_gt.webp" alt="Ground truth, ${task}" loading="lazy" width="472" height="472">
+        </div><p class="rl">${task}<span>${bb}</span></p></div>`;
     });
     $("#qual").innerHTML = h;
   }
