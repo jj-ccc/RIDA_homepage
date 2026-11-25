@@ -22,16 +22,6 @@
   }
   const fmt = (v, d = 2) => (v == null || isNaN(v) ? "–" : v.toFixed(d));
   const sgn = (v, d = 2) => (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(d);
-  const mean = (a) => a.reduce((s, x) => s + x, 0) / a.length;
-  function corr(a, b) {
-    const ma = mean(a), mb = mean(b);
-    let s = 0, sa = 0, sb = 0;
-    for (let i = 0; i < a.length; i++) {
-      const x = a[i] - ma, y = b[i] - mb;
-      s += x * y; sa += x * x; sb += y * y;
-    }
-    return s / Math.sqrt(sa * sb);
-  }
   const ranks = (v) => v.map((x) => 1 + v.filter((y) => y < x).length);
 
   /* ---------- shared bits ---------- */
@@ -61,12 +51,12 @@
       const b = e.target.closest("button");
       if (!b || !box.contains(b)) return;
       $$("button", box).forEach((x) => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
-      cb(b.dataset.v ?? b.dataset.px ?? b.dataset.lab ?? b.dataset.rm);
+      cb(b.dataset.v ?? b.dataset.px);
     });
   }
   const pressed = (box) => {
     const b = $('button[aria-pressed="true"]', box);
-    return b ? b.dataset.v ?? b.dataset.px ?? b.dataset.lab ?? b.dataset.rm : null;
+    return b ? b.dataset.v ?? b.dataset.px : null;
   };
   function setButtons(box, items, active) {
     box.innerHTML = "";
@@ -161,10 +151,10 @@
       const h = 0.55 * Math.pow(v, gam) + 0.45 * (sig(k * (v - c)) - lo) / (hi - lo);
       return (1 - lam) * v + lam * h;
     }
-    const lab = "font-size:10px;letter-spacing:.16em;fill:var(--muted);font-weight:500";
+    const lab = "font-size:11px;fill:var(--muted)";
     [X0, X1].forEach((x) => el("line", { x1: x, x2: x, y1: T - 6, y2: yv(0) + 6, style: "stroke:var(--rule-2);stroke-width:1" }, svg));
     el("line", { x1: X0 - 14, x2: X1 + 14, y1: yv(ETA), y2: yv(ETA), style: "stroke:var(--ink-2);stroke-width:1;stroke-dasharray:2 4" }, svg);
-    el("text", { x: X0 - 20, y: yv(ETA) + 4, "text-anchor": "end", style: "font-family:var(--f-serif);font-style:italic;font-size:15px;fill:var(--ink-2)", text: "η" }, svg);
+    el("text", { x: X0 - 20, y: yv(ETA) + 4, "text-anchor": "end", style: "font-family:var(--f-serif);font-style:italic;font-size:15px;fill:var(--muted)", text: "η" }, svg);
     const g = el("g", {}, svg);
     const top = N - 1;
     const paths = s.map((_, i) => el("path", {
@@ -174,9 +164,9 @@
     s.forEach((v, i) => el("circle", { cx: X0, cy: yv(v), r: i === top ? 2.8 : 1.7, style: `fill:${i === top ? "var(--accent)" : "var(--ink)"}` }, g));
     const ends = s.map((_, i) => el("circle", { cx: X1, r: i === top ? 2.8 : 1.7, style: `fill:${i === top ? "var(--accent)" : "var(--ink)"}` }, g));
     const yb = yv(0) + 28;
-    el("text", { x: X0, y: yb, style: lab, text: "SOURCE" }, svg);
-    el("text", { x: X1, y: yb, "text-anchor": "end", style: lab, text: "TARGET" }, svg);
-    const cnt = "font-family:var(--f-serif);font-size:14px;fill:var(--ink-2)";
+    el("text", { x: X0, y: yb, style: lab, text: "Source" }, svg);
+    el("text", { x: X1, y: yb, "text-anchor": "end", style: lab, text: "Target" }, svg);
+    const cnt = "font-size:11px;fill:var(--ink-2)";
     el("text", { x: X0, y: yb + 20, style: cnt, text: `${s.filter((v) => v >= ETA).length} above η` }, svg);
     const cntR = el("text", { x: X1, y: yb + 20, "text-anchor": "end", style: cnt }, svg);
     const STEPS = 80;
@@ -266,168 +256,6 @@
   $("#shift").addEventListener("input", drawDemo);
   drawDemo();
 
-  /* ================= rank lab: consistency & stability ================= */
-  const LAB_ANCH = ["var(--a1)", "var(--a2)", "var(--a3)", "var(--a4)", "var(--a5)", "var(--a6)"];
-  const LAB_PX = {
-    stable: { w: [0.84, 0.66, 0.52, 0.41, 0.27, 0.12], n: [-0.06, 0.07, -0.05, 0.06, -0.04, 0.05], conf: 0.81 },
-    fragile: { w: [0.71, 0.66, 0.60, 0.38, 0.33, 0.30], n: [-0.30, 0.22, 0.25, -0.20, 0.18, 0.10], conf: 0.97 },
-  };
-  let labPx = "stable";
-  function quantile(arr, q) {
-    const s = [...arr].sort((a, b) => a - b);
-    const pos = (s.length - 1) * q, lo = Math.floor(pos), hi = Math.ceil(pos);
-    return s[lo] + (s[hi] - s[lo]) * (pos - lo);
-  }
-  function drawLab() {
-    const svg = $("#lab-svg");
-    svg.innerHTML = "";
-    const q = +$("#lab-q").value, aug = +$("#lab-aug").value;
-    $("#lab-q-out").textContent = q.toFixed(2);
-    $("#lab-aug-out").textContent = aug.toFixed(2);
-    const P = LAB_PX[labPx], K = 6;
-    const rw = P.w, rs = P.w.map((v, i) => Math.min(1, Math.max(0, v + aug * P.n[i])));
-    const pairs = [];
-    for (let k = 0; k < K; k++) for (let l = k + 1; l < K; l++) pairs.push([k, l]);
-    const gw = pairs.map(([k, l]) => rw[k] - rw[l]), gs = pairs.map(([k, l]) => rs[k] - rs[l]);
-    const delta = Math.max(1e-6, quantile(gw.map(Math.abs), q));
-    let nT = 0, nK = 0, bce = 0;
-    const status = pairs.map((_, i) => {
-      if (Math.abs(gw[i]) <= delta) return "u";
-      nT++;
-      const target = gw[i] > 0 ? 1 : 0;
-      const p = 1 / (1 + Math.exp(-gs[i] / delta));
-      bce += -(target * Math.log(Math.max(p, 1e-9)) + (1 - target) * Math.log(Math.max(1 - p, 1e-9)));
-      if (gw[i] * gs[i] > 0) { nK++; return "k"; }
-      return "f";
-    });
-    const s = nT ? nK / nT : 0;
-    const enough = nT >= 0.1 * pairs.length;
-    const w = s >= 0.8 && enough ? s : 0;
-
-    // bars: weak vs strong
-    const L = 34, T = 22, H = 200, Wb = 252;
-    const y = (v) => T + (1 - v) * H;
-    [0, 0.5, 1].forEach((v) => {
-      el("line", { x1: L, x2: L + Wb, y1: y(v), y2: y(v), style: "stroke:var(--line);stroke-width:1" }, svg);
-      el("text", { x: L - 6, y: y(v) + 4, "text-anchor": "end", style: "fill:var(--muted);font-size:10.5px", text: v.toFixed(1) }, svg);
-    });
-    const slot = Wb / K;
-    for (let i = 0; i < K; i++) {
-      const x0 = L + slot * i + 6;
-      el("rect", { x: x0, y: y(rw[i]), width: 14, height: y(0) - y(rw[i]), style: `fill:${LAB_ANCH[i]};opacity:.4` }, svg);
-      el("rect", { x: x0 + 16, y: y(rs[i]), width: 14, height: y(0) - y(rs[i]), style: `fill:${LAB_ANCH[i]}` }, svg);
-      el("text", { x: x0 + 15, y: y(0) + 16, "text-anchor": "middle", style: "fill:var(--ink-2);font-size:11px;font-weight:600", text: "a" + (i + 1) }, svg);
-      el("text", { x: x0 + 7, y: y(0) + 30, "text-anchor": "middle", style: "fill:var(--muted);font-size:9.5px", text: "w" }, svg);
-      el("text", { x: x0 + 23, y: y(0) + 30, "text-anchor": "middle", style: "fill:var(--muted);font-size:9.5px", text: "s" }, svg);
-    }
-    el("line", { x1: L, x2: L + Wb, y1: y(0), y2: y(0), style: "stroke:var(--line-2);stroke-width:1" }, svg);
-    el("text", { x: L, y: 12, style: "fill:var(--muted);font-size:10.5px", text: "Similarity, weak (w) and strong (s) view" }, svg);
-
-    // pair matrix (upper triangle)
-    const cx0 = 330, cy0 = 40, c = 29;
-    el("text", { x: cx0, y: 12, style: "fill:var(--muted);font-size:10.5px", text: "Anchor pairs (k, l)" }, svg);
-    for (let i = 0; i < K; i++) {
-      el("rect", { x: cx0 + c * i + 8, y: cy0 - 18, width: c - 16, height: 6, style: `fill:${LAB_ANCH[i]}` }, svg);
-      el("rect", { x: cx0 - 18, y: cy0 + c * i + 8, width: 6, height: c - 16, style: `fill:${LAB_ANCH[i]}` }, svg);
-    }
-    pairs.forEach(([k, l], i) => {
-      const st = status[i];
-      const fill = st === "k" ? "var(--accent)" : st === "f" ? "var(--flip)" : "var(--paper-2)";
-      const r = el("rect", { x: cx0 + c * l + 1.5, y: cy0 + c * k + 1.5, width: c - 3, height: c - 3, rx: 1, style: `fill:${fill};${st === "u" ? "stroke:var(--rule-2);stroke-width:.8" : ""}` }, svg);
-      hover(r, () => `<b>a${k + 1} vs a${l + 1}</b><br>weak gap <span class="tv">${sgn(gw[i], 3)}</span>, strong gap <span class="tv">${sgn(gs[i], 3)}</span><br>${st === "u" ? "not trusted: |gap| ≤ δ" : st === "k" ? "trusted, order kept" : "trusted, order flipped"}`);
-    });
-    for (let i = 0; i < K; i++) {
-      el("rect", { x: cx0 + c * i + 1.5, y: cy0 + c * i + 1.5, width: c - 3, height: c - 3, rx: 1, style: "fill:none;stroke:var(--rule);stroke-width:1;stroke-dasharray:2 2" }, svg);
-    }
-
-    $("#ro-delta").textContent = delta.toFixed(3);
-    $("#ro-trust").textContent = `${nT} / 15`;
-    $("#ro-lrc").textContent = nT ? (bce / nT).toFixed(3) : "–";
-    $("#ro-s").textContent = nT ? s.toFixed(2) : "–";
-    $("#ro-w").textContent = w ? w.toFixed(2) : "0 (excluded)";
-    $("#ro-s-box").className = "ro " + (nT && s >= 0.8 ? "ok" : "no");
-    $("#ro-w-box").className = "ro " + (w ? "ok" : "no");
-    $("#ro-conf").textContent = P.conf.toFixed(2) + (P.conf >= 0.9 ? " ≥ η" : " < η");
-  }
-  seg($('[aria-label="Pixel type"]'), (v) => { labPx = v; drawLab(); });
-  $("#lab-q").addEventListener("input", drawLab);
-  $("#lab-aug").addEventListener("input", drawLab);
-  drawLab();
-
-  /* ================= rank lab: rank matching ================= */
-  const RM_ANCH = [
-    { c: "#9c9ce4", cls: "LVC" }, { c: "#9c9ce4", cls: "LVC" }, { c: "#79bdb2", cls: "MYO" },
-    { c: "#79bdb2", cls: "MYO" }, { c: "#b3bdbf", cls: "BG" }, { c: "#b3bdbf", cls: "BG" },
-  ];
-  const SIG = {
-    LVC: [5.6, 5.2, 3.4, 2.9, 2.0, 1.9],
-    MYO: [3.1, 3.6, 5.5, 5.1, 2.2, 1.5],
-    BG: [1.8, 2.1, 2.5, 2.9, 5.4, 6.3],
-  };
-  const RM_PX = {
-    interior: [0.31, 0.42, 0.86, 0.79, 0.22, 0.12],
-    boundary: [0.70, 0.52, 0.74, 0.48, 0.20, 0.15],
-    bg: [0.18, 0.25, 0.30, 0.22, 0.81, 0.88],
-  };
-  let rmPx = "interior";
-  function drawRM() {
-    const svg = $("#rm-svg");
-    svg.innerHTML = "";
-    const g = +$("#rm-gamma").value;
-    $("#rm-gamma-out").textContent = "γ = " + g.toFixed(2);
-    const sims = RM_PX[rmPx].map((v) => Math.pow(v, g));
-    const pi = ranks(sims);
-    const L = 34, T = 22, H = 112, Wb = 250;
-    const y = (v) => T + (1 - v) * H;
-    el("text", { x: L, y: 12, style: "fill:var(--muted);font-size:10.5px", text: "Similarity to source anchors, and rank" }, svg);
-    [0, 1].forEach((v) => {
-      el("line", { x1: L, x2: L + Wb, y1: y(v), y2: y(v), style: "stroke:var(--line);stroke-width:1" }, svg);
-      el("text", { x: L - 6, y: y(v) + 4, "text-anchor": "end", style: "fill:var(--muted);font-size:10.5px", text: v.toFixed(1) }, svg);
-    });
-    const slot = Wb / 6;
-    sims.forEach((v, i) => {
-      const x = L + slot * i + slot / 2;
-      el("rect", { x: x - 10, y: y(v), width: 20, height: y(0) - y(v), style: `fill:${RM_ANCH[i].c}` }, svg);
-      el("text", { x, y: y(0) + 15, "text-anchor": "middle", style: "fill:var(--ink-2);font-size:10.5px;font-weight:600", text: RM_ANCH[i].cls }, svg);
-      el("text", { x, y: y(0) + 34, "text-anchor": "middle", style: "fill:var(--accent);font-family:var(--f-serif);font-size:14px", text: String(pi[i]) }, svg);
-    });
-    // signatures as rank strips
-    const sx = 312;
-    el("text", { x: sx, y: 12, style: "fill:var(--muted);font-size:10.5px", text: "Class signatures μ, mean source rank" }, svg);
-    Object.entries(SIG).forEach(([cls, mu], r) => {
-      const yy = 26 + r * 36;
-      el("text", { x: sx, y: yy + 15, style: "fill:var(--ink-2);font-size:11px;font-weight:600", text: cls }, svg);
-      mu.forEach((v, i) => {
-        const a = 0.12 + 0.88 * (v - 1) / 5;
-        el("rect", { x: sx + 38 + i * 26, y: yy, width: 23, height: 22, style: `fill:var(--accent);opacity:${a.toFixed(2)}` }, svg);
-        el("text", { x: sx + 38 + i * 26 + 11.5, y: yy + 15, "text-anchor": "middle", style: `fill:${a > 0.55 ? "var(--on-accent)" : "var(--ink)"};font-size:9.5px;font-weight:600`, text: v.toFixed(1) }, svg);
-      });
-    });
-    // correlations
-    const rho = Object.fromEntries(Object.entries(SIG).map(([k, mu]) => [k, corr(pi, mu)]));
-    const sorted = Object.entries(rho).sort((a, b) => b[1] - a[1]);
-    const label = sorted[0][0], m = sorted[0][1] - sorted[1][1];
-    const by = 210, zx = 300, sc = 150;
-    el("text", { x: L, y: by - 10, style: "fill:var(--muted);font-size:10.5px", text: "Rank correlation ρ with each signature" }, svg);
-    el("line", { x1: zx, x2: zx, y1: by - 4, y2: by + 3 * 30 - 6, style: "stroke:var(--line-2);stroke-width:1" }, svg);
-    ["-1", "0", "+1"].forEach((t, i) => el("text", { x: zx + (i - 1) * sc, y: by + 3 * 30 + 6, "text-anchor": "middle", style: "fill:var(--muted);font-size:10px", text: t }, svg));
-    Object.entries(rho).forEach(([cls, v], r) => {
-      const yy = by + r * 30;
-      const win = cls === label;
-      el("text", { x: zx - sc - 8, y: yy + 14, "text-anchor": "end", style: "fill:var(--ink-2);font-size:11px;font-weight:600", text: cls }, svg);
-      el("rect", { x: zx - sc, y: yy + 3, width: 2 * sc, height: 14, style: "fill:var(--paper-2)" }, svg);
-      const x0 = v >= 0 ? zx : zx + v * sc;
-      el("rect", { x: x0, y: yy + 3, width: Math.abs(v) * sc, height: 14, style: `fill:${win ? "var(--accent)" : "var(--gray-1)"}` }, svg);
-      el("text", { x: zx + sc + 8, y: yy + 15, style: `fill:${win ? "var(--accent)" : "var(--ink-2)"};font-size:11.5px;font-weight:700;font-variant-numeric:tabular-nums`, text: (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(3) }, svg);
-    });
-    $("#rm-label").textContent = label;
-    $("#rm-margin").textContent = m.toFixed(3);
-    $("#rm-weight").textContent = (m / 2).toFixed(3);
-  }
-  seg($('[aria-label="Target pixel"]'), (v) => { rmPx = v; drawRM(); });
-  $("#rm-gamma").addEventListener("input", drawRM);
-  drawRM();
-
   /* ================= dumbbell: 24 settings ================= */
   function strongest(rows, bb, dir, mi, metric) {
     const lb = lowerBetter(metric);
@@ -470,7 +298,7 @@
     items.forEach((it) => {
       if (it.head) {
         const ht = el("text", { x: 0, y: yy + 20, style: "font-family:var(--f-serif);font-size:15px;fill:var(--ink)", text: it.head + "  " }, svg);
-        el("tspan", { style: "font-family:var(--f-sans);font-size:10px;letter-spacing:.08em;fill:var(--muted)", text: it.metric.toUpperCase() }, ht);
+        el("tspan", { style: "font-family:var(--f-sans);font-size:11px;fill:var(--muted)", text: it.metric }, ht);
         yy += headH;
         return;
       }
@@ -617,14 +445,13 @@
   drawExplorer();
   setView();
 
-  /* ================= per-class heat table ================= */
-  const heat = (t) => `background:color-mix(in srgb, var(--accent) ${(2 + 16 * t).toFixed(0)}%, transparent)`;
-  function heatTable(head1, head2, keys, getRow, colMeta, sepEvery) {
+  /* ================= per-class table ================= */
+  function classTable(head1, head2, keys, getRow, colMeta, sepEvery) {
     const data = keys.map((k) => getRow(k));
     const ncol = colMeta.length;
     const stats = colMeta.map((c, i) => {
       const vs = keys.map((k, r) => (k === "oracle" ? null : data[r][i])).filter((v) => v != null);
-      return { min: Math.min(...vs), max: Math.max(...vs), ...marks(vs, c.lb) };
+      return marks(vs, c.lb);
     });
     let h = `<div class="tbl-wrap"><table class="data"><thead>${head1}${head2}</thead><tbody>`;
     let lastFam = null;
@@ -634,17 +461,11 @@
       lastFam = fam;
       h += `<tr class="${k === "rida" ? "ours" : k === "oracle" ? "oracle" : ""}"><td>${MNAME[k]}</td>`;
       data[r].forEach((v, i) => {
-        const s = stats[i], c = colMeta[i];
+        const s = stats[i];
         const cls = [i && i % sepEvery === 0 ? "sep" : ""];
-        let style = "";
-        if (k !== "oracle" && k !== "rida") {
-          let t = s.max > s.min ? (v - s.min) / (s.max - s.min) : 0.5;
-          if (c.lb) t = 1 - t;
-          style = heat(t);
-        }
         if (k !== "oracle" && v === s.b1) cls.push("b1");
         else if (k !== "oracle" && v === s.b2) cls.push("b2");
-        h += `<td class="${cls.join(" ")}" style="${style}">${fmt(v)}</td>`;
+        h += `<td class="${cls.join(" ")}">${fmt(v)}</td>`;
       });
       h += "</tr>";
     });
@@ -661,7 +482,7 @@
       const head1 = `<tr class="grp"><th></th><th colspan="5">Dice (%) ↑</th><th colspan="5" class="sep">ASSD (voxel) ↓</th></tr>`;
       const head2 = `<tr><th>Method</th>${cls.map((c) => `<th>${c}</th>`).join("")}${cls.map((c, i) => `<th class="${i ? "" : "sep"}">${c}</th>`).join("")}</tr>`;
       const meta = cls.map(() => ({ lb: false })).concat(cls.map(() => ({ lb: true })));
-      html = heatTable(head1, head2, keys, (k) => rows[k].dice.concat(rows[k].assd), meta, 5);
+      html = classTable(head1, head2, keys, (k) => rows[k].dice.concat(rows[k].assd), meta, 5);
       if (pc.task.startsWith("abdomen")) html += '<p class="tbl-foot">The Abdomen Source-only row is not shown.</p>';
     } else {
       const E = D.emall[pc.task], rows = E.rows[pc.bb], B = BENCH[pc.task];
@@ -669,7 +490,7 @@
       const head1 = `<tr class="grp"><th></th>${E.dirs.map((d, i) => `<th colspan="4" class="${i ? "sep" : ""}">${B.dirs[d]}</th>`).join("")}</tr>`;
       const head2 = `<tr><th>Method</th>${E.dirs.map((d, i) => E.metrics.map((m, j) => `<th class="${i && !j ? "sep" : ""}">${m}</th>`).join("")).join("")}</tr>`;
       const meta = E.dirs.flatMap(() => E.metrics.map(() => ({ lb: false })));
-      html = heatTable(head1, head2, keys, (k) => E.dirs.flatMap((d) => rows[k][d]), meta, 4);
+      html = classTable(head1, head2, keys, (k) => E.dirs.flatMap((d) => rows[k][d]), meta, 4);
     }
     host.innerHTML = html;
   }
